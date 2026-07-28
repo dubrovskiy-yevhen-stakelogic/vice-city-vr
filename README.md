@@ -2,7 +2,7 @@
 
 ![Vice City VR logo](logo.png)
 
-**Version:** `v0.1.0-alpha`
+**Version:** `v0.2.0-alpha`
 
 **Status:** Work in progress; not a final release and not yet fully playtested
 
@@ -31,14 +31,20 @@ A legally obtained PC copy of *Grand Theft Auto: Vice City* (2003) is required.
   headset reticle.
 - Configurable body holsters and optional physical magazine reloads for
   supported one-handed firearms.
-- Motion-controller movement and vehicle controls, R3 sprint, headset
-  recentering, and an adjustable driving-height offset.
+- Three vehicle-control modes: classic controls, physically grabbed immersive
+  steering, and one-controller motion steering.
+- Per-vehicle seat-distance calibration, adjustable driving height, optional
+  motorcycle horizon lock, physical bike throttle and lean gestures, vehicle
+  sidearms, and motion-controller drive-by shooting.
+- Configurable smooth or snap turning, turn sensitivity, R3 sprint, and
+  headset recentering.
 - In-headset settings, weapon calibration, holster loadout, diagnostics, and
   cheat menus.
 - World-locked theater presentation for startup movies, menus, loading
   transitions, and cutscenes.
 - A Windows x64 Direct3D 12 renderer with full single-pass stereo, fixed
-  foveated rendering through D3D12 VRS, supersampling, and NVIDIA DLAA.
+  foveated rendering through D3D12 VRS, supersampling, NVIDIA DLAA, and AMD
+  FidelityFX Super Resolution 2 Native AA.
 - Vice City lighting, colour filtering, fog, weather, wet surfaces, rain,
   shadows, water, coronas, transparent geometry, and HUD compatibility on the
   modern renderer.
@@ -63,8 +69,10 @@ Meta Quest 3 through Quest Link or Air Link is the primary tested setup. The
 mod uses OpenXR and does not require the legacy Oculus PC SDK. Other PC OpenXR
 headsets may work but have not received the same level of testing.
 
-NVIDIA DLAA requires a compatible NVIDIA RTX GPU and a current driver. The game
-retains a non-DLAA anti-aliasing path for unsupported hardware.
+NVIDIA DLAA requires a compatible NVIDIA RTX GPU and a current driver. FSR 2
+Native AA is available through Direct3D 12 as the temporal alternative for
+other GPUs. The original spatial anti-aliasing path remains available if
+neither temporal backend is suitable.
 
 ## Install a release
 
@@ -108,11 +116,33 @@ To remove the mod, delete the files supplied by its archive and
 | Detonate remote charges | Use the trigger on the controller that appears in the opposite hand |
 | Use a scope | Bring the aligned weapon to the eye; long guns also require the support hand |
 | Use the mission camera | Bring it to the eye and press its trigger |
+| Default-driving drive-by, left | Hold B + left grip |
+| Default-driving drive-by, right | Hold B + right grip |
+| Fire forward on a bike in default driving | Hold B without a grip |
+| Change radio station | X while driving |
 
 When optional manual reloading is enabled and a supported gun is empty, grab a
 magazine from that weapon's body position with the free hand and insert it into
 the magazine well. Manual reload currently supports the Colt .45, TEC-9, Uzi,
 and Ingram. Other firearms continue to use the game's automatic reload logic.
+
+## Vehicle control modes
+
+Vehicle settings are available in the headset and can be changed without
+restarting the game:
+
+- **Default:** original gamepad-style steering with optional motion-controller
+  drive-by shooting.
+- **Immersive:** grab the physical steering wheel or motorcycle handlebars.
+  Cars support one- or two-handed wheel control and horn interaction.
+  Motorcycles support physical throttle, steering, wheelie and standing
+  gestures.
+- **Motion:** steer by rotating the selected controller, with a configurable
+  left- or right-hand reference.
+
+Driving height is global. Seat distance and physical control calibration are
+stored per vehicle model. Motorcycle horizon lock is enabled by default to
+reduce discomfort and can be disabled in vehicle settings.
 
 ## In-headset menus and shortcuts
 
@@ -136,6 +166,9 @@ Inside a VR menu:
 The gameplay HUD is controlled only from VR settings. Its default is off.
 Weapon lasers, body-holster highlights, and manual reloading also default to
 off; physical scopes default to on. The default driving Y offset is +15 cm.
+The locomotion submenu provides smooth or snap turning, adjustable turn
+sensitivity, and a configurable snap angle. Experimental teleport movement is
+not exposed in this release.
 
 VR configuration and per-weapon calibration are stored in `vr_settings.ini`.
 General reVC settings are stored in `reVC.ini`. Both files are created beside
@@ -150,8 +183,14 @@ do not erase a player's preferences.
   behaviour may need adjustment on other OpenXR devices.
 - Manual magazine reload currently covers only the supported one-handed guns
   listed above.
+- FSR 2 Native AA is provided as a vendor-neutral temporal alternative, but its
+  image quality can differ from DLAA because the legacy game renderer does not
+  provide full per-object motion vectors.
 - Per-hand weapon calibration remains exposed because some headset/controller
   combinations may need small alignment adjustments.
+- FSR 2 refuses temporal allocation above its per-eye VRAM safety limit. If it
+  reports an error at an extreme render scale, reduce supersampling or use the
+  standard anti-aliasing path.
 - Original executable plugins such as ASI modules, CLEO modules, and binary
   limit adjusters are not compatible unless separately ported to reVC.
 - Save compatibility between unrelated reVC forks or substantially different
@@ -177,8 +216,10 @@ version, and the steps that caused the issue.
 
 **DLAA is unavailable**
 
-- Update the NVIDIA driver and use a supported RTX GPU.
-- Select the fallback anti-aliasing option in VR settings on other hardware.
+- Update the NVIDIA driver and use a supported RTX GPU, or select FSR 2 in VR
+  settings.
+- Select the standard anti-aliasing option if both temporal modes report an
+  error.
 
 **The viewpoint is offset**
 
@@ -211,8 +252,10 @@ librw Direct3D 12 backend
 The primary world pass shares visibility, animation, materials, lighting, and
 draw preparation across both eyes. D3D12 Tier 2 VRS can lower peripheral
 shading cost independently for each eye. The OpenXR resolve path supports live
-render-scale changes and temporal anti-aliasing/DLAA without recreating the VR
-session.
+render-scale changes and independently tracked per-eye temporal history for
+DLAA or FSR 2 without recreating the VR session. FSR 2 currently runs as a
+Native AA backend: render and output resolution match, while its temporal
+reconstruction replaces the spatial fallback.
 
 ## Build from source
 
@@ -263,6 +306,8 @@ need to be staged for a distributable package.
 - `vendor/librw/`: RenderWare-compatible renderer and D3D12 backend.
 - `vendor/openxr-1.1.58/`: OpenXR headers, loader, and runtime library.
 - `vendor/streamline/`: NVIDIA Streamline/DLSS integration.
+- `vendor/FidelityFX-FSR2/`: AMD FidelityFX Super Resolution 2 source and
+  Direct3D 12 backend.
 - `gamefiles/models/vrhands/`: converted UltimateXR hand assets and provenance.
 - `premake5.lua`: build configurations and dependency selection.
 
@@ -273,6 +318,7 @@ need to be staged for a distributable package.
 - Khronos Group for OpenXR.
 - Microsoft for Direct3D 12.
 - NVIDIA for Streamline and DLSS/DLAA.
+- AMD for FidelityFX Super Resolution 2.
 - OpenAL Soft and mpg123 contributors for audio support.
 - VRMADA for the UltimateXR hand assets used under the MIT License. Source and
   conversion details are recorded in `gamefiles/models/vrhands/SOURCE.md`.
