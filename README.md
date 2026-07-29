@@ -2,7 +2,7 @@
 
 ![Vice City VR logo](logo.png)
 
-**Version:** `v0.2.0-alpha`
+**Version:** `v0.2.1-alpha`
 
 **Status:** Work in progress; not a final release and not yet fully playtested
 
@@ -73,6 +73,11 @@ NVIDIA DLAA requires a compatible NVIDIA RTX GPU and a current driver. FSR 2
 Native AA is available through Direct3D 12 as the temporal alternative for
 other GPUs. The original spatial anti-aliasing path remains available if
 neither temporal backend is suitable.
+
+The safe first-run rendering profile is **100% Render Scale + FXAA**, with
+temporal AA disabled. This profile works across vendors and avoids multiplying
+game supersampling by an additional SteamVR or headset-runtime resolution
+scale. DLAA, FSR 2, and higher render scales are opt-in quality settings.
 
 ## Install a release
 
@@ -149,6 +154,7 @@ reduce discomfort and can be disabled in vehicle settings.
 | Chord | Action |
 | --- | --- |
 | Both grips + Menu | Open or close VR settings |
+| Both grips + both triggers + X | Open or close VR settings (alternate headset-safe chord) |
 | Both grips + B | Open or close the cheat menu |
 | Both grips + A | Toggle the debug overlay |
 | Both grips + Y | Start or stop a performance capture |
@@ -174,6 +180,11 @@ VR configuration and per-weapon calibration are stored in `vr_settings.ini`.
 General reVC settings are stored in `reVC.ini`. Both files are created beside
 the executable and are intentionally omitted from release archives so updates
 do not erase a player's preferences.
+
+On a fresh `v0.2.1` installation, Render Scale defaults to 100%, FXAA defaults
+to on, and Temporal AA defaults to off. The legacy reVC 30 FPS limiter is
+disabled in VR; OpenXR supplies headset frame pacing instead. Existing
+`vr_settings.ini` choices are preserved during an update.
 
 ## Known limitations
 
@@ -220,6 +231,16 @@ version, and the steps that caused the issue.
   settings.
 - Select the standard anti-aliasing option if both temporal modes report an
   error.
+
+**Performance is unexpectedly low or locked near 30 FPS**
+
+- Open VR settings with either supported chord and start with Render Scale at
+  100%, Temporal AA set to OFF, and FXAA enabled.
+- SteamVR and vendor headset software apply their own resolution scale. Avoid
+  raising both the runtime scale and the in-game Render Scale at the same time.
+- `v0.2.1` bypasses the original reVC 30 FPS limiter during VR gameplay. If an
+  older executable is still present, replace it with the one from the complete
+  `v0.2.1` archive.
 
 **The viewpoint is offset**
 
