@@ -2,7 +2,7 @@
 
 ![Vice City VR logo](logo.png)
 
-**Version:** `v0.2.1-alpha`
+**Version:** `v0.3.0-alpha`
 
 **Status:** Work in progress; not a final release and not yet fully playtested
 
@@ -37,7 +37,14 @@ A legally obtained PC copy of *Grand Theft Auto: Vice City* (2003) is required.
   motorcycle horizon lock, physical bike throttle and lean gestures, vehicle
   sidearms, and motion-controller drive-by shooting.
 - Configurable smooth or snap turning, turn sensitivity, R3 sprint, and
-  headset recentering.
+  headset recentering, with optional body-relative or head-relative movement.
+- Optional head-directed firearm aiming: weapons remain in the tracked hand
+  while bullets and the laser converge on the point at the center of the
+  headset view.
+- A configurable head-locked HUD layer with independent visibility, uniform
+  scale, horizontal width, and X/Y placement controls.
+- RC mission compatibility, including direct aircraft controls, an accessible
+  bomb-drop binding, and an optional story-mission completion aid.
 - In-headset settings, weapon calibration, holster loadout, diagnostics, and
   cheat menus.
 - World-locked theater presentation for startup movies, menus, loading
@@ -66,8 +73,11 @@ A legally obtained PC copy of *Grand Theft Auto: Vice City* (2003) is required.
 - Microsoft Visual C++ 2015-2022 Redistributable (x64).
 
 Meta Quest 3 through Quest Link or Air Link is the primary tested setup. The
-mod uses OpenXR and does not require the legacy Oculus PC SDK. Other PC OpenXR
-headsets may work but have not received the same level of testing.
+mod uses OpenXR and does not require the legacy Oculus PC SDK. It provides
+bindings for Oculus Touch, Valve Index, HTC Vive, Windows Mixed Reality, and
+the Khronos Generic Controller profile when supported by the active runtime.
+This also gives SteamVR a standards-based fallback for other controllers.
+Non-Quest combinations have not received the same level of testing.
 
 NVIDIA DLAA requires a compatible NVIDIA RTX GPU and a current driver. FSR 2
 Native AA is available through Direct3D 12 as the temporal alternative for
@@ -84,7 +94,8 @@ scale. DLAA, FSR 2, and higher render scales are opt-in quality settings.
 1. Install a legal PC copy of *Grand Theft Auto: Vice City* and make sure the
    original game data is present.
 2. Back up any saves you want to keep.
-3. Extract the Vice City VR archive into the game directory, next to
+3. Open the archive and copy the contents of its
+   `Vice-City-VR-v0.3.0-alpha` folder into the game directory, next to
    `gta-vc.exe`. Allow Windows to merge the new `models` directory.
 4. In your headset software, select it as the active OpenXR runtime.
 5. Connect the headset through Quest Link, Air Link, SteamVR, or the equivalent
@@ -105,7 +116,7 @@ To remove the mod, delete the files supplied by its archive and
 
 | Action | Default input |
 | --- | --- |
-| Move | Left thumbstick |
+| Move | Left thumbstick, relative to body or head according to VR settings |
 | Turn / look / vehicle steering | Right thumbstick |
 | Sprint on foot | R3 |
 | Enter, exit, and normal game actions | Standard A/B/X/Y controller mapping |
@@ -121,10 +132,12 @@ To remove the mod, delete the files supplied by its archive and
 | Detonate remote charges | Use the trigger on the controller that appears in the opposite hand |
 | Use a scope | Bring the aligned weapon to the eye; long guns also require the support hand |
 | Use the mission camera | Bring it to the eye and press its trigger |
+| Head-directed aim | Enable Aim Direction: Head in VR settings |
 | Default-driving drive-by, left | Hold B + left grip |
 | Default-driving drive-by, right | Hold B + right grip |
 | Fire forward on a bike in default driving | Hold B without a grip |
 | Change radio station | X while driving |
+| Drop an RC helicopter bomb | A while controlling the RC aircraft |
 
 When optional manual reloading is enabled and a supported gun is empty, grab a
 magazine from that weapon's body position with the free hand and insert it into
@@ -154,7 +167,7 @@ reduce discomfort and can be disabled in vehicle settings.
 | Chord | Action |
 | --- | --- |
 | Both grips + Menu | Open or close VR settings |
-| Both grips + both triggers + X | Open or close VR settings (alternate headset-safe chord) |
+| Both grips + both triggers + left primary or L3 | Open or close VR settings (X on Touch, left A on Index/generic profiles, or left stick click) |
 | Both grips + B | Open or close the cheat menu |
 | Both grips + A | Toggle the debug overlay |
 | Both grips + Y | Start or stop a performance capture |
@@ -166,32 +179,45 @@ Inside a VR menu:
 
 - Left thumbstick: select an entry.
 - L2 / R2: decrease or increase a value.
-- A: open or select.
-- B: go back or close.
+- A or the right stick/trackpad click: open or select.
+- B or the left stick/trackpad click: go back or close.
 
-The gameplay HUD is controlled only from VR settings. Its default is off.
+The gameplay HUD is controlled only from the `HUD Settings` submenu. Its
+default is off. A fresh installation uses 130% uniform scale, 100% horizontal
+width, and zero horizontal/vertical offsets; all four values can be adjusted
+independently in the headset.
 Weapon lasers, body-holster highlights, and manual reloading also default to
-off; physical scopes default to on. The default driving Y offset is +15 cm.
-The locomotion submenu provides smooth or snap turning, adjustable turn
+off; physical scopes default to on. Aim Direction defaults to Controller and
+Movement Direction defaults to Body, preserving the previous control scheme.
+The default driving Y offset is +15 cm. The locomotion submenu provides
+body- or head-relative movement, smooth or snap turning, adjustable turn
 sensitivity, and a configurable snap angle. Experimental teleport movement is
 not exposed in this release.
 
-VR configuration and per-weapon calibration are stored in `vr_settings.ini`.
+VR configuration and per-weapon calibration are stored in `vr_settings.ini`
+beside `reVC.exe`, independent of the process working directory.
 General reVC settings are stored in `reVC.ini`. Both files are created beside
 the executable and are intentionally omitted from release archives so updates
 do not erase a player's preferences.
 
-On a fresh `v0.2.1` installation, Render Scale defaults to 100%, FXAA defaults
+On a fresh `v0.3.0` installation, Render Scale defaults to 100%, FXAA defaults
 to on, and Temporal AA defaults to off. The legacy reVC 30 FPS limiter is
 disabled in VR; OpenXR supplies headset frame pacing instead. Existing
 `vr_settings.ini` choices are preserved during an update.
+
+The cheat menu includes `PASS CURRENT MISSION` as an accessibility fallback
+for supported story missions in the standard PC `main.scm`. It enters the
+mission's own guarded success path so normal progression and cleanup still
+run. It intentionally does nothing for an unknown or incompatible mission
+script rather than risking save progression.
 
 ## Known limitations
 
 - This is an alpha build and the complete campaign has not yet been played
   through on the release configuration.
-- Meta Quest 3 is the primary tested headset; controller bindings or runtime
-  behaviour may need adjustment on other OpenXR devices.
+- Meta Quest 3 is the primary tested headset. Index, Vive, WMR, and Generic
+  Controller bindings are included, but controller naming and runtime
+  emulation can vary on other OpenXR/SteamVR devices.
 - Manual magazine reload currently covers only the supported one-handed guns
   listed above.
 - FSR 2 Native AA is provided as a vendor-neutral temporal alternative, but its
@@ -238,9 +264,18 @@ version, and the steps that caused the issue.
   100%, Temporal AA set to OFF, and FXAA enabled.
 - SteamVR and vendor headset software apply their own resolution scale. Avoid
   raising both the runtime scale and the in-game Render Scale at the same time.
-- `v0.2.1` bypasses the original reVC 30 FPS limiter during VR gameplay. If an
+- `v0.3.0` bypasses the original reVC 30 FPS limiter during VR gameplay. If an
   older executable is still present, replace it with the one from the complete
-  `v0.2.1` archive.
+  `v0.3.0` archive.
+
+**The VR settings menu does not open**
+
+- Try both grips + Menu first.
+- If the controller has no application Menu button, hold both grips and both
+  triggers, then press the left primary button (X on Touch, left A on Index or
+  the Generic Controller profile) or the left stick click.
+- In SteamVR, confirm that the controller is bound to the application's
+  OpenXR actions. The active profile is written to `openxr_d3d12.log`.
 
 **The viewpoint is offset**
 
@@ -277,39 +312,6 @@ render-scale changes and independently tracked per-eye temporal history for
 DLAA or FSR 2 without recreating the VR session. FSR 2 currently runs as a
 Native AA backend: render and output resolution match, while its temporal
 reconstruction replaces the spatial fallback.
-
-## Build from source
-
-### Prerequisites
-
-- Git with submodule support.
-- Visual Studio 2022 with Desktop C++ and a Windows 10/11 SDK.
-- A complete legal Vice City game directory for runtime testing.
-
-Generate the solution:
-
-```powershell
-git submodule update --init --recursive
-./premake5.exe vs2019 --with-librw --with-openxr-vr `
-  --openxrsdk=vendor/openxr-1.1.58
-```
-
-Build the primary configuration:
-
-```powershell
-msbuild build/reVC.sln /m /t:Build /p:Configuration=Release `
-  /p:Platform=win-amd64-librw_d3d12-oal
-```
-
-The executable is written to:
-
-```text
-bin/win-amd64-librw_d3d12-oal/Release/reVC.exe
-```
-
-Setting `GTA_VC_RE_DIR` before generating the solution enables the project's
-post-build executable copy. Runtime DLLs and `gamefiles/models/vrhands` still
-need to be staged for a distributable package.
 
 ## Diagnostics
 
