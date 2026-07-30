@@ -2,7 +2,7 @@
 
 ![Vice City VR logo](logo.png)
 
-**Version:** `v0.3.0-alpha`
+**Version:** `v0.3.1-alpha`
 
 **Status:** Work in progress; not a final release and not yet fully playtested
 
@@ -37,7 +37,8 @@ A legally obtained PC copy of *Grand Theft Auto: Vice City* (2003) is required.
   motorcycle horizon lock, physical bike throttle and lean gestures, vehicle
   sidearms, and motion-controller drive-by shooting.
 - Configurable smooth or snap turning, turn sensitivity, R3 sprint, and
-  headset recentering, with optional body-relative or head-relative movement.
+  headset recentering, with body-relative movement, head-relative movement,
+  and an optional experimental head-turn mode.
 - Optional head-directed firearm aiming: weapons remain in the tracked hand
   while bullets and the laser converge on the point at the center of the
   headset view.
@@ -95,7 +96,7 @@ scale. DLAA, FSR 2, and higher render scales are opt-in quality settings.
    original game data is present.
 2. Back up any saves you want to keep.
 3. Open the archive and copy the contents of its
-   `Vice-City-VR-v0.3.0-alpha` folder into the game directory, next to
+   `Vice-City-VR-v0.3.1-alpha` folder into the game directory, next to
    `gta-vc.exe`. Allow Windows to merge the new `models` directory.
 4. In your headset software, select it as the active OpenXR runtime.
 5. Connect the headset through Quest Link, Air Link, SteamVR, or the equivalent
@@ -183,16 +184,20 @@ Inside a VR menu:
 - B or the left stick/trackpad click: go back or close.
 
 The gameplay HUD is controlled only from the `HUD Settings` submenu. Its
-default is off. A fresh installation uses 130% uniform scale, 100% horizontal
-width, and zero horizontal/vertical offsets; all four values can be adjusted
-independently in the headset.
+default is on so mission instructions are visible without first opening the VR
+menu. A fresh installation uses 130% uniform scale, 100% horizontal width, and
+zero horizontal/vertical offsets; all four values can be adjusted independently
+in the headset.
 Weapon lasers, body-holster highlights, and manual reloading also default to
-off; physical scopes default to on. Aim Direction defaults to Controller and
-Movement Direction defaults to Body, preserving the previous control scheme.
-The default driving Y offset is +15 cm. The locomotion submenu provides
-body- or head-relative movement, smooth or snap turning, adjustable turn
-sensitivity, and a configurable snap angle. Experimental teleport movement is
-not exposed in this release.
+off; physical scopes default to on. Aim Direction defaults to Controller.
+Movement Direction defaults to `HEAD` on a fresh configuration, making
+left-stick movement follow the headset without automatically turning the
+world. `BODY` remains available for body-relative movement, while
+`HEAD TURN EXPERIMENTAL` retains the optional head-yaw-driven camera-turning
+behavior. The default driving Y offset is +15 cm. The locomotion submenu also
+provides smooth or snap turning, adjustable turn sensitivity, and a
+configurable snap angle. Experimental teleport movement is not exposed in this
+release.
 
 VR configuration and per-weapon calibration are stored in `vr_settings.ini`
 beside `reVC.exe`, independent of the process working directory.
@@ -200,10 +205,20 @@ General reVC settings are stored in `reVC.ini`. Both files are created beside
 the executable and are intentionally omitted from release archives so updates
 do not erase a player's preferences.
 
-On a fresh `v0.3.0` installation, Render Scale defaults to 100%, FXAA defaults
-to on, and Temporal AA defaults to off. The legacy reVC 30 FPS limiter is
-disabled in VR; OpenXR supplies headset frame pacing instead. Existing
-`vr_settings.ini` choices are preserved during an update.
+On a fresh `v0.3.1` installation, Render Scale defaults to 100%, FXAA defaults
+to on, Temporal AA defaults to off, and Movement Direction defaults to `HEAD`.
+The legacy reVC 30 FPS limiter is disabled in VR; OpenXR supplies headset frame
+pacing instead. Existing `vr_settings.ini` choices are preserved during an
+update.
+
+The executable contains the project's baseline for every calibrated weapon
+profile, including separate right-hand, left-hand, and support-grip
+transforms where available. It also includes handle calibrations for all six
+motorcycles, plus the calibrated Sanchez seat distance and wheelie threshold.
+These values are absolute fallbacks for missing settings: every matching key in
+an existing `vr_settings.ini` takes priority, and built-in values are never
+added to or summed with a player's calibration. The scripted M60 used in the
+helicopter gunner mission is covered by the same baseline.
 
 The cheat menu includes `PASS CURRENT MISSION` as an accessibility fallback
 for supported story missions in the standard PC `main.scm`. It enters the
@@ -264,9 +279,9 @@ version, and the steps that caused the issue.
   100%, Temporal AA set to OFF, and FXAA enabled.
 - SteamVR and vendor headset software apply their own resolution scale. Avoid
   raising both the runtime scale and the in-game Render Scale at the same time.
-- `v0.3.0` bypasses the original reVC 30 FPS limiter during VR gameplay. If an
+- `v0.3.1` bypasses the original reVC 30 FPS limiter during VR gameplay. If an
   older executable is still present, replace it with the one from the complete
-  `v0.3.0` archive.
+  `v0.3.1` archive.
 
 **The VR settings menu does not open**
 
