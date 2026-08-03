@@ -2,9 +2,8 @@
 
 ![Vice City VR logo](logo.png)
 
-**Current version:** `v0.4.0-alpha`  
-**Platforms:** PCVR
-**Developer:** **#yevhen4817 (Discord)**
+**Current version:** `v0.4.1-alpha`
+**Platform:** Windows PCVR
 
 Vice City VR is an unofficial VR conversion of the original 2003 PC release
 of *Grand Theft Auto: Vice City*. It adds full stereoscopic 6DoF VR, tracked
@@ -32,29 +31,30 @@ comfort options while preserving the original game and campaign.
   weapon hand-offs.
 - Physical punching, melee combat, grenades, Molotovs, and remote explosives.
 - Optional physical magazine reloading for supported firearms.
-- Three driving styles: classic controls, immersive physical steering, and
-  controller-based motion steering.
+- Independently selectable car and motorcycle driving styles: classic
+  controls, immersive physical steering, and controller-based motion steering.
 - Interactive car steering wheels and motorcycle handlebars, including
   one-handed driving and drive-by shooting.
 - Per-vehicle seating and control calibration.
-- Smooth and snap turning, adjustable sensitivity, head-relative or
-  body-relative movement, motorcycle horizon lock, and other comfort options.
+- Smooth and snap turning, adjustable sensitivity, body-relative or
+  head-directed movement, optional walking head bob, motorcycle horizon lock,
+  and other comfort options. Fresh installations use Head Directed movement
+  with walking head bob disabled.
 - In-headset settings, weapon calibration, holster configuration, cheat, and
   accessibility menus.
-- Configurable VR HUD and world-locked theatre presentation for menus and
-  cutscenes.
+- Configurable VR HUD with radio and mission messages, plus world-locked
+  theatre presentation for menus and cutscenes.
+- Optional controller haptics for weapon fire with adjustable recoil strength.
 - Improved draw distance, lighting, weather, rain, reflections, and visual
-  effects.
-- Multiple anti-aliasing and image-quality options in the PCVR release.
+  effects, including world-stable VR clouds.
+- Multiple anti-aliasing and image-quality options.
 
 ## Download
 
-Download the newest PCVR or Quest package from
+Download the newest Windows PCVR package from
 [GitHub Releases](https://github.com/dubrovskiy-yevhen-stakelogic/vice-city-vr/releases).
 
-Release names identify the platform:
-
-- `Vice-City-VR-v...zip` — Windows PCVR.
+Release archives use the name `Vice-City-VR-v...zip`.
 
 Vice City VR does **not** include the original game or any original copyrighted
 game data. A legally obtained copy of the original 2003 PC release is required.
@@ -67,7 +67,7 @@ game data. A legally obtained copy of the original 2003 PC release is required.
 - A Direct3D 12-capable GPU.
 - A compatible PC VR headset and an active OpenXR runtime.
 - A legally obtained PC copy of *Grand Theft Auto: Vice City* (2003).
-- Microsoft Visual C++ 2015–2022 Redistributable (x64).
+- Microsoft Visual C++ 2015-2022 Redistributable (x64).
 
 ### Setup
 
@@ -80,9 +80,10 @@ game data. A legally obtained copy of the original 2003 PC release is required.
 The mod does not replace `gta-vc.exe`. Keep the original executable and make a
 backup of important saves while the project remains in alpha.
 
-Meta Quest through Quest Link or Air Link is the primary tested PCVR setup.
-OpenXR bindings are also included for common SteamVR controller profiles, but
-non-Quest combinations may require custom SteamVR bindings.
+The mod uses the active Windows OpenXR runtime. Bindings are included for
+Oculus Touch, Valve Index, HTC Vive, Windows Mixed Reality, and the Khronos
+Generic Controller profile. Some SteamVR controller combinations may require
+custom bindings.
 
 ## Opening the VR menu
 
@@ -93,6 +94,30 @@ non-Quest combinations may require custom SteamVR bindings.
 The in-headset menu contains graphics, HUD, movement, comfort, vehicle,
 calibration, accessibility, and cheat settings.
 
+## Changes in v0.4.1-alpha
+
+- Restored temporary radio-station names, timed mission instructions, objective
+  updates, and other short messages in the VR HUD.
+- Added optional weapon-shot controller haptics with adjustable recoil
+  strength.
+- Added independent Default, Immersive, and Motion driving-mode selection for
+  cars and motorcycles.
+- Added Head Directed locomotion that keeps Tommy facing the actual movement
+  direction without assisted camera turning or sideways running. It is the
+  default movement direction on a fresh installation; the experimental
+  assisted head-turn mode remains available separately.
+- Added a walking head-bob toggle. Head bob is disabled by default on a fresh
+  installation.
+- Fixed the missing centre aiming dot in the tracked PSG-1 scope.
+- Replaced the RPG scope's opaque centre rectangle with a transparent VR-safe
+  reticle.
+- Fixed sky clouds rotating with headset movement by keeping their VR geometry
+  stable in the world.
+- Moved Render Scale, VRS, Temporal AA, Temporal Jitter, FXAA, and the Vice City
+  colour filter into a dedicated Graphics Settings submenu.
+- Existing settings and weapon, hand, HUD, holster, and vehicle calibration
+  values remain compatible and take precedence over built-in defaults.
+
 ## Alpha status
 
 Vice City VR is still a work in progress. The complete campaign has not yet
@@ -102,7 +127,7 @@ headset-specific issues may remain.
 Before reporting a problem:
 
 - Confirm that you are using the latest release.
-- Include the headset, GPU and active VR runtime where applicable.
+- Include the headset, GPU, active OpenXR runtime, and PCVR connection method.
 - Describe exact reproduction steps and attach relevant logs.
 - Keep backups of important saves.
 
@@ -125,12 +150,10 @@ PC game. Original game assets must not be redistributed with the mod.
 
 ### Is this a finished release?
 
-No. `v0.4.0` is an alpha release. It is playable, but bugs and incomplete edge
+No. `v0.4.1` is an alpha release. It is playable, but bugs and incomplete edge
 cases should still be expected.
 
 ## Credits
-
-Vice City VR is created and maintained by **#yevhen4817 (Discord)**.
 
 Thank you to everyone testing the project, reporting reproducible issues, and
 helping improve the mod.
@@ -138,8 +161,7 @@ helping improve the mod.
 ## Legal notice
 
 Vice City VR is an unofficial fan-made project. It is not affiliated with,
-endorsed by, or sponsored by Rockstar Games, Take-Two Interactive, Meta, or
-SideQuest.
+endorsed by, or sponsored by Rockstar Games, Take-Two Interactive, or Meta.
 
 *Grand Theft Auto*, *Grand Theft Auto: Vice City*, and all related trademarks
 and game assets belong to their respective owners. This project does not grant
