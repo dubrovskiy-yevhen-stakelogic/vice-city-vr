@@ -6,6 +6,12 @@
 
 **Platform:** Windows PCVR
 
+> [!TIP]
+> **Join the Flat2VR Discord community!** Development updates, player feedback,
+> testing, and discussion of Vice City VR take place in the
+> [Vice City VR discussion channel](https://discord.com/channels/747967102895390741/1529621098751197365).
+> Join the Flat2VR server first if the channel link does not open for you.
+
 Vice City VR is an unofficial VR conversion of the original 2003 PC release of
 *Grand Theft Auto: Vice City*. It adds stereoscopic 6DoF OpenXR rendering,
 tracked hands, physical weapons, immersive vehicles, VR-native menus, and
