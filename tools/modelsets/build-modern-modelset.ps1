@@ -277,6 +277,7 @@ if (Test-Path -LiteralPath $Out) {
 }
 
 $drive = $null
+$availableBytes = $null
 try {
     $drive = New-Object System.IO.DriveInfo([System.IO.Path]::GetPathRoot($Out))
     $availableBytes = $drive.AvailableFreeSpace

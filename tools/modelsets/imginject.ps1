@@ -86,6 +86,8 @@ Remove-Item $Img -Force; Rename-Item $outImg $Img
 Remove-Item $dirPath -Force; Rename-Item "$dirPath.new" $dirPath
 
 Write-Output ("entries replaced in archive: {0}" -f $replaced)
-$unused = $repl.Keys | Where-Object { -not $used.ContainsKey($_) }
+# @() so that zero or one leftover name still yields an array: the caller may
+# run under Set-StrictMode, where .Count on $null or a scalar string throws.
+$unused = @($repl.Keys | Where-Object { -not $used.ContainsKey($_) })
 Write-Output ("supplied files with no matching entry: {0}" -f $unused.Count)
 $unused | Sort-Object | Select-Object -First 20 | ForEach-Object { Write-Output "    $_" }

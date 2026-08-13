@@ -43,7 +43,9 @@ function Read-Txd([string]$path) {
         } else {
             $chunk = New-Object byte[] $total
             [Array]::Copy($b,$pos,$chunk,0,$total)
-            $trailing += $chunk
+            # The comma keeps the byte[] intact as one element; += without it
+            # flattens the chunk into individual bytes.
+            $trailing += ,$chunk
         }
         $pos += $total
     }
@@ -56,7 +58,9 @@ Write-Output ("base : {0} textures (declared {1})" -f $bd.Tex.Count, $bd.NumTex)
 Write-Output ("extra: {0} textures (declared {1})" -f $ed.Tex.Count, $ed.NumTex)
 
 $have = @{}; foreach ($t in $bd.Tex) { $have[$t.Name.ToLower()] = $true }
-$add = $ed.Tex | Where-Object { -not $have.ContainsKey($_.Name.ToLower()) }
+# @() so that zero or one appended texture still yields an array: the caller
+# may run under Set-StrictMode, where .Count on $null or a scalar throws.
+$add = @($ed.Tex | Where-Object { -not $have.ContainsKey($_.Name.ToLower()) })
 Write-Output ("adding {0} textures absent from base:" -f $add.Count)
 $add | ForEach-Object { "    $($_.Name)" }
 
