@@ -1,12 +1,11 @@
-# Builds the optional MODERN asset overlay from files downloaded by the user.
+# Builds the optional MODERN asset overlay from two verified source packs.
 # No game or third-party assets are distributed with Vice City VR.
-# See ..\..\MODERN_MODELS.md for download links and folder examples.
+# The PC one-click wizard downloads and extracts the packs for the user.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$true)][string]$GameDir,
     [Parameter(Mandatory=$true)][string]$HdPack,
     [Parameter(Mandatory=$true)][string]$AtmospherePack,
-    [Parameter(Mandatory=$true)][string]$HdVegetation,
     [string]$Out,
     [switch]$VerifyOnly,
     [switch]$Force
@@ -14,25 +13,23 @@ param(
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = "Stop"
-$BuildScriptVersion = "0.5.0-1"
+$BuildScriptVersion = "0.5.2-pc-1"
 $MinimumFreeBytes = 12GB
 
 $SourceUrls = [ordered]@{
     "GTA VC HD + Weapons" = "https://drive.google.com/file/d/1Swe1dVWDnKz8ad51y8L0ihPWVCxmFRYj/view"
     "Mods / Atmosphere"   = "https://drive.google.com/file/d/1y9KpKjLSna76bjz1Lf2DzP0G4AnkN_2d/view"
-    "Vegetation in HD"    = "https://libertycity.net/files/gta-vice-city/126557-vegetation-in-hd.html"
 }
-
 # These signatures identify the downloads used to prepare and test 0.5.0.
 # A mismatch is a warning, not a hard failure: an author may update a pack at
 # the same URL while retaining the folder layout expected by this builder.
 $TestedSignatures = @{
-    "HD pack gta3.img"             = "C48CA4E66E743B270D8848A4E405087E696C8A63D71B03853CE20F3BBC5B3CC2"
-    "HD pack gta3.dir"             = "55C20A60446B0382DD85689DF72EA58B7806E8E315C2D6F75ABC2C960546A104"
+    "HD pack gta3.img"             = "4120871542825386411727C8EAC617F80EA2B2D0786FADA858C8CDDD3D718A7D"
+    "HD pack gta3.dir"             = "DD606380513BB63841D3DAD517BCFA2F54598DF7EE6084E0C941C18D78C30D01"
     "Atmosphere vehicles.col"      = "64233744C532423ECDCAEFF088696E76BCFA4758A70CADA2FD6EDDA258911DF9"
     "Atmosphere wheels.dff"        = "3FAB043194EB5016D3F96D14090831D1ABCDDCB4B3793B465D30A581643D22DA"
-    "HD Vegetation generic.txd"    = "705BD993DCC6B1B5C369D4CE2DFCF1F826E4AC3693D0E4F31366CB4F4594FBB9"
-    "HD Vegetation gtatrees.txd"   = "E0BE3987B7C9F95335D5AE22955BFA298CDB6E2B4C054AD25318DF56AE6A5C72"
+    "Atmosphere wheels.txd"        = "23F5752BE920896E86DE3AE21CE00B9D301DBF04E321162373BD893915B488C5"
+    "HD pack generic.txd"          = "66DF98073FDDC2840DABE486156830065227921C5622CF4E03FA9282AD810465"
 }
 
 function Step([string]$Text) {
@@ -164,8 +161,6 @@ function Invoke-NativeChecked([string]$Path, [string[]]$Arguments) {
 $game = Resolve-ExistingDirectory $GameDir "Vice City VR game"
 $hd = Find-Marker $HdPack "models\gta3.img" "GTA VC HD + Weapons"
 $mods = Find-Marker $AtmospherePack "Vehicles\gta3.img" "Mods / Atmosphere"
-$hvRoot = Find-Marker $HdVegetation "MOD\modloader\MODS" "Vegetation in HD"
-$hv = Join-Path $hvRoot "MOD\modloader\MODS"
 
 if ([string]::IsNullOrWhiteSpace($Out)) {
     $Out = Join-Path $game "modelsets\modern"
@@ -198,13 +193,22 @@ Require-File (Join-Path $vehicleGeneric "wheels.txd") "Atmosphere wheels.txd"
 $vehicleDffCount = Require-MinimumFiles $vehicleFiles "*.dff" 90 "Atmosphere vehicle models"
 $vehicleTxdCount = Require-MinimumFiles $vehicleFiles "*.txd" 90 "Atmosphere vehicle textures"
 $atmosVegetationCount = Require-MinimumFiles $atmosVegetation "*.dff" 20 "Atmosphere vegetation" -Recurse
-
-$hvGeneric = Join-Path $hv "generic.txd"
-$hvVegetation = Join-Path $hv "Vice Vegetation"
-$hvTreesTxd = Join-Path $hvVegetation "trees\gtatrees.txd"
-Require-File $hvGeneric "HD Vegetation generic.txd"
-Require-File $hvTreesTxd "HD Vegetation gtatrees.txd"
-$hdVegetationCount = Require-MinimumFiles $hvVegetation "*.dff" 20 "HD Vegetation models" -Recurse
+$vegetationNames = @(
+    Get-ChildItem -LiteralPath $atmosVegetation -Recurse -File -Filter "*.dff" |
+        ForEach-Object { $_.BaseName.ToLowerInvariant() } |
+        Sort-Object -Unique
+)
+if ($vegetationNames.Count -lt 20) {
+    throw "Only $($vegetationNames.Count) vegetation models were found; refusing to create an incomplete manifest."
+}
+if ($vegetationNames.Count -gt 512) {
+    throw "The vegetation manifest has $($vegetationNames.Count) names; the runtime supports at most 512."
+}
+$tooLong = @($vegetationNames | Where-Object { $_.Length -gt 23 })
+if ($tooLong.Count -gt 0) {
+    throw "Vegetation model names exceed the runtime's 23-character limit: $($tooLong -join ', ')"
+}
+$vegetationArchiveEntries = @($vegetationNames | ForEach-Object { "$_.dff" })
 
 $tools = $PSScriptRoot
 $requiredTools = @(
@@ -221,7 +225,7 @@ if ((Full-Path $Out) -eq (Full-Path $game) -or
     (Paths-Overlap $Out $gameModels)) {
     throw "Unsafe output path '$Out'. Use the default modelsets\modern folder, never the game root or models folder."
 }
-foreach ($sourceRoot in @($hd, $mods, $hvRoot)) {
+foreach ($sourceRoot in @($hd, $mods)) {
     if (Paths-Overlap $Out $sourceRoot) {
         throw "Unsafe output path '$Out': it overlaps source folder '$sourceRoot'."
     }
@@ -236,22 +240,21 @@ Write-Host "Vice City VR Modern asset builder $BuildScriptVersion"
 Write-Host "Game:          $game"
 Write-Host "HD + Weapons:  $hd"
 Write-Host "Atmosphere:    $mods"
-Write-Host "HD Vegetation: $hvRoot"
 Write-Host "Output:        $Out"
 Write-Host ""
-Write-Host ("Validated: {0} HD archive entries; {1} vehicle DFFs; {2} vehicle TXDs; {3}+{4} vegetation DFFs." -f
+Write-Host ("Validated: {0} HD archive entries; {1} vehicle DFFs; {2} vehicle TXDs; {3} vegetation names kept Classic." -f
     $hdArchive.Entries, $vehicleDffCount, $vehicleTxdCount,
-    $atmosVegetationCount, $hdVegetationCount)
+    $atmosVegetationCount)
 
 Step "Hashing source anchors"
 $sourceHashes = [ordered]@{
     "Original game generic.txd"     = File-Sha256 $gameGeneric
     "HD pack gta3.img"              = File-Sha256 $hdImg
     "HD pack gta3.dir"              = File-Sha256 $hdDir
+    "HD pack generic.txd"           = File-Sha256 $hdGeneric
     "Atmosphere vehicles.col"       = File-Sha256 $vehicleColl
     "Atmosphere wheels.dff"         = File-Sha256 (Join-Path $vehicleGeneric "wheels.dff")
-    "HD Vegetation generic.txd"     = File-Sha256 $hvGeneric
-    "HD Vegetation gtatrees.txd"    = File-Sha256 $hvTreesTxd
+    "Atmosphere wheels.txd"         = File-Sha256 (Join-Path $vehicleGeneric "wheels.txd")
 }
 foreach ($name in $sourceHashes.Keys) {
     Write-Host ("    {0}: {1}" -f $name, $sourceHashes[$name])
@@ -317,54 +320,25 @@ try {
     Get-ChildItem -LiteralPath $vehicleGeneric -File |
         Copy-Item -Destination $stageGenericDir -Force
 
-    # 3. Inject the Atmosphere vehicles and vegetation. Later sources win.
-    Step "Injecting Atmosphere vehicles and vegetation"
+    # 3. Inject Atmosphere vehicles and physically remove expensive palm/tree
+    # DFFs. Missing entries fall back to the original Classic archive.
+    Step "Injecting Atmosphere vehicles and removing Modern vegetation"
     Invoke-ScriptChecked (Join-Path $tools "imginject.ps1") @{
         Img = Join-Path $stageModels "gta3.img"
         From = @(
             $vehicleFiles,
-            $vehicleGeneric,
-            $atmosVegetation,
-            (Join-Path $atmosVegetation "pots"),
-            (Join-Path $atmosVegetation "trees")
+            $vehicleGeneric
         )
-    }
-
-    # 4. HD Vegetation is included as an optional category. The runtime keeps
-    # this category CLASSIC by default because these palms are extremely heavy.
-    Step "Injecting optional HD Vegetation"
-    Invoke-ScriptChecked (Join-Path $tools "imginject.ps1") @{
-        Img = Join-Path $stageModels "gta3.img"
-        From = @(
-            $hv,
-            $hvVegetation,
-            (Join-Path $hvVegetation "pots"),
-            (Join-Path $hvVegetation "trees")
-        )
+        Exclude = $vegetationArchiveEntries
     }
 
     # Record exact vegetation membership for category-selective streaming.
-    $vegetationNames = @(
-        Get-ChildItem -LiteralPath $atmosVegetation,$hvVegetation -Recurse -File -Filter "*.dff" |
-            ForEach-Object { $_.BaseName.ToLowerInvariant() } |
-            Sort-Object -Unique
-    )
-    if ($vegetationNames.Count -lt 20) {
-        throw "Only $($vegetationNames.Count) vegetation models were found; refusing to create an incomplete manifest."
-    }
-    if ($vegetationNames.Count -gt 512) {
-        throw "The vegetation manifest has $($vegetationNames.Count) names; the runtime supports at most 512."
-    }
-    $tooLong = @($vegetationNames | Where-Object { $_.Length -gt 23 })
-    if ($tooLong.Count -gt 0) {
-        throw "Vegetation model names exceed the runtime's 23-character limit: $($tooLong -join ', ')"
-    }
     $vegetationManifest = Join-Path $stage "vegetation_models.txt"
     [System.IO.File]::WriteAllLines(
         $vegetationManifest,
         [string[]]$vegetationNames,
         (New-Object System.Text.UTF8Encoding($false)))
-    Write-Host ("    vegetation category: {0} models (CLASSIC by default)" -f $vegetationNames.Count)
+    Write-Host ("    vegetation category: {0} Modern DFFs removed; CLASSIC forced" -f $vegetationNames.Count)
 
     # 5. Start from the user's original generic.txd, adding only leaf textures
     # absent from it. This avoids the pack's full uncompressed dictionary.
@@ -372,7 +346,7 @@ try {
     $mergedGeneric = Join-Path $work "generic_merged.txd"
     Invoke-ScriptChecked (Join-Path $tools "txdmerge.ps1") @{
         Base = $gameGeneric
-        Extra = $hvGeneric
+        Extra = $hdGeneric
         Out = $mergedGeneric
     }
     Copy-Item -LiteralPath $mergedGeneric -Destination (Join-Path $stageModels "generic.txd") -Force
@@ -440,6 +414,7 @@ try {
     $info.Add("BuiltUtc=$([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))")
     $info.Add("ArchiveEntries=$($resultArchive.Entries)")
     $info.Add("DefaultVegetation=CLASSIC")
+    $info.Add("ModernVegetationGeometry=REMOVED")
     $info.Add("")
     $info.Add("SOURCE URLS (assets are not redistributed by Vice City VR)")
     foreach ($name in $SourceUrls.Keys) { $info.Add("$name=$($SourceUrls[$name])") }
@@ -486,7 +461,7 @@ try {
     Write-Host ""
     Write-Host "Done. The Modern overlay is ready (gta3.img: $imgMB MB)." -ForegroundColor Green
     Write-Host "In VR MENU > MODEL ASSETS, enable the Modern categories you want, then restart."
-    Write-Host "VEGETATION / PALMS defaults to CLASSIC for performance; enable it only if desired."
+    Write-Host "VEGETATION / PALMS is deliberately kept CLASSIC for performance."
 } finally {
     if (Test-Path -LiteralPath $work) {
         Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue

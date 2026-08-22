@@ -1,0 +1,7 @@
+# Runtime downloads created by the public helper wizards.
+tools/saves/platform-tools/
+tools/saves/.platform-tools-download/
+tools/saves/platform-tools-latest-windows.zip
+
+# Local diagnostic output.
+*.log

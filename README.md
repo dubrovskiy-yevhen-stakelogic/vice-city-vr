@@ -2,13 +2,13 @@
 
 ![Vice City VR logo](logo.png)
 
-**Current version:** v0.5.0-alpha
+**Current version:** v0.5.2-alpha
 
 **Platform:** Windows PCVR
 
 > [!TIP]
-> **Join the Flat2VR Discord community!** Development updates, player feedback,
-> testing, and discussion of Vice City VR take place in the
+> **Join the Flat2VR Discord!** Development updates, player feedback, testing,
+> and discussion of the mod take place in the
 > [Vice City VR discussion channel](https://discord.com/channels/747967102895390741/1529621098751197365).
 > Join the Flat2VR server first if the channel link does not open for you.
 
@@ -58,7 +58,7 @@ alpha release, so hardware-, runtime-, and mission-specific issues may remain.
 Download the Windows PCVR package from
 [GitHub Releases](https://github.com/dubrovskiy-yevhen-stakelogic/vice-city-vr/releases).
 
-The release archive is named **Vice-City-VR-v0.5.0-alpha.zip**. It does not
+The release archive is named **Vice-City-VR-v0.5.2-alpha.zip**. It does not
 replace **gta-vc.exe** and does not contain the original game.
 
 ## Requirements
@@ -76,7 +76,7 @@ Native AA and the standard FXAA path are available on other supported GPUs.
 
 1. Install a legal PC copy of *Grand Theft Auto: Vice City* (2003).
 2. Back up important saves.
-3. Extract the contents of the **Vice-City-VR-v0.5.0-alpha** folder into the
+3. Extract the contents of the **Vice-City-VR-v0.5.2-alpha** folder into the
    game directory, next to **gta-vc.exe**.
 4. Select your headset software as the active OpenXR runtime.
 5. Connect the headset, then run **reVC.exe**.
@@ -90,7 +90,12 @@ The welcome card appears after Tommy takes his first controllable step in the
 game world, not during startup menus or cutscenes. It explains the main VR
 features and can later be reopened from **VR Menu > About**.
 
-- Open the VR menu with **both grips + Menu**.
+> [!IMPORTANT]
+> **The normal, easiest menu shortcut is: hold both Grip buttons, then press
+> the Menu button once.** You do not need to press both triggers or X unless
+> your controller/runtime does not expose a working Menu button.
+
+- Open the VR menu with **both grips + Menu**. This is the recommended method.
 - If the controller has no usable Menu button, hold **both grips + both
   triggers**, then press **X / left primary** or the **left stick click**.
 - Recenter with **both grips + L3 + R3**.
@@ -101,19 +106,55 @@ Oculus Touch, Valve Index, HTC Vive, Windows Mixed Reality, and the Khronos
 Generic Controller profile have built-in OpenXR bindings. Some SteamVR
 controller combinations may still need custom bindings.
 
+## Immersive motorcycle controls
+
+Immersive motorcycle steering starts when a hand grips a nearby handlebar.
+Motorcycle acceleration uses the **right trigger by default**, so a new player
+can ride immediately after grabbing the bars.
+
+**VR Menu > Vehicle Settings > Bike Throttle** is deliberately highlighted:
+
+- **Right Trigger (Recommended)** - normal, discoverable acceleration.
+- **Manual Wrist Twist (Advanced)** - hold the right handle, hold its trigger,
+  then physically twist the controller like a motorcycle throttle.
+
+The Immersive HUD has a shared global motorcycle layout. Open a HUD panel's
+calibration while not seated on a bike to edit that global layout. Open the
+same calibration while seated on a bike to create an override for that exact
+motorcycle model. Until an override is changed, that model inherits the global
+layout; **Reset This Model to Global** removes the override.
+
+## Copy PC saves to Quest
+
+Connect an authorized Quest by USB, close the game on both devices, then
+double-click **TRANSFER_PC_SAVES_TO_QUEST.bat**.
+
+The wizard:
+
+- finds the PC save folder or asks you to select the Vice City VR folder;
+- finds an existing ADB installation, or offers to download Google's official
+  Android platform-tools;
+- detects every available PC save slot;
+- converts all compatible Win64 Vice City VR saves to the Quest format;
+- backs up occupied Quest slots before replacement; and
+- reads every transferred slot back to verify it.
+
+Original retail, legacy x86, unknown, and corrupt saves are rejected instead of
+being written. The diagnostic log is saved as
+**%TEMP%\ViceCityVR-PC-Saves-To-Quest.log**.
+
 ## Optional Modern assets
 
 The release works with the original Classic assets. Replacement assets are
 optional and are never bundled.
 
-The tested recipe uses
-[GTA VC HD + Weapons](https://drive.google.com/file/d/1Swe1dVWDnKz8ad51y8L0ihPWVCxmFRYj/view),
-[Mods](https://drive.google.com/file/d/1y9KpKjLSna76bjz1Lf2DzP0G4AnkN_2d/view),
-and
-[Vegetation in HD](https://libertycity.net/files/gta-vice-city/126557-vegetation-in-hd.html).
-See [Building the optional Modern asset set](MODERN_MODELS.md) for verified
-hashes, the archive password, a read-only preflight, and the local build
-command.
+Double-click **PREPARE_MODERN_MODELS.bat** and select the legal Vice City game
+folder. The public wizard downloads the two tested source packs, verifies and
+caches them, builds a staged overlay, and installs it only after final
+validation. A retry reuses completed downloads and extractions. HD vegetation
+is deliberately excluded, so the expensive replacement palms remain Classic.
+See [Building the optional Modern asset set](MODERN_MODELS.md) for hashes,
+command-line use, safety guarantees, and troubleshooting.
 
 After building the overlay, open **VR Menu > Model Assets**. You can independently
 choose Classic or Modern for:
@@ -124,7 +165,7 @@ choose Classic or Modern for:
 - Pedestrians
 - Weapons
 
-Every asset-category change requires a full game restart. On a fresh v0.5.0
+Every asset-category change requires a full game restart. On a fresh v0.5.2
 configuration, **Vegetation / Palms defaults to Classic** even when other Modern
 categories are selected. This is intentional: the tested HD palms contain far
 more geometry than the original vegetation and can dominate GPU frame time.
@@ -133,7 +174,7 @@ Modern vegetation remains available as an opt-in choice.
 Existing **vr_settings.ini** files are preserved during an update. If you used
 an earlier test build, confirm that **Vegetation / Palms** is set to **Classic**.
 
-## Changes in v0.5.0-alpha
+## Changes in v0.5.2-alpha
 
 - Added optional Modern assets and per-category Classic/Modern mixing.
 - Added the high-density traffic system and independent 50-300% pedestrian and
@@ -143,7 +184,11 @@ an earlier test build, confirm that **Vegetation / Palms** is set to **Classic**
 - Reworked two-handed weapon support, mirrored hand orientation, calibration,
   holsters, and Grip Lock interaction.
 - Reworked one-handed immersive motorcycle and car controls, including stable
-  steering and physical throttle release.
+  steering, right-trigger acceleration by default, and optional physical wrist
+  throttle.
+- Added global and per-motorcycle-model Immersive HUD layouts with explicit
+  inheritance and reset-to-global behavior.
+- Added the one-click PC-to-Quest save-transfer wizard.
 - Expanded the Classic calibration baselines and added separate Modern
   weapon/vehicle profiles.
 - Added the first-run welcome card, About page, coloured VR-menu categories,
@@ -153,7 +198,7 @@ an earlier test build, confirm that **Vegetation / Palms** is set to **Classic**
 - Fixed an assertion that could occur while leaving the game and made
   performance diagnostics opt-in.
 
-For the full list, see [Vice City VR v0.5.0 GitHub release text](GITHUB_RELEASE_v0.5.0.md).
+For the full list, see [Vice City VR v0.5.2 GitHub release text](GITHUB_RELEASE_v0.5.2.md).
 
 ## Known issues
 
