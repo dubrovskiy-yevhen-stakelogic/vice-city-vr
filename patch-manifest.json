@@ -1,0 +1,1717 @@
+{
+    "schemaVersion":  1,
+    "kitVersion":  "0.5.5-alpha-pc",
+    "base":  {
+                 "repository":  "https://github.com/mrxenginner/reVC.git",
+                 "branch":  "miami",
+                 "commit":  "026cd10f3fdbd92c089830e5067c4457c53c1b51",
+                 "tree":  "603e9d0ef59a86e508309b74cf0a9f9c5fa13676"
+             },
+    "patches":  [
+                    {
+                        "path":  "vice-city-vr.patch",
+                        "sha256":  "0db1b09654a6fe5382e197e7df11f2379b5fa890235b039c5345f4b21def862e",
+                        "targets":  [
+                                        {
+                                            "path":  "CMakeLists.txt",
+                                            "preimageSha256":  "c4f99aa521312d09f3343d44a3c022b585e99c808a8875404cbbd25a33cf5efa",
+                                            "postimageSha256":  "47cc91e6ae12b804ee1a5c9dfd134a1c70350217e1efe9eb350d6042ddd0497c"
+                                        },
+                                        {
+                                            "path":  "conanfile.py",
+                                            "preimageSha256":  "a52a59519187c739ae1da37a819090de173fd393dc9c79f959cccc4c24632d5e",
+                                            "postimageSha256":  "3903a05a20b49c37f72b7af39d996c5c823a3e08a9650abb090c6e8e7f6a95c0"
+                                        },
+                                        {
+                                            "path":  "premake5.lua",
+                                            "preimageSha256":  "66ebd293a31089e5b0a22e07e789ffb2ed354dc1a1c2f09a7392d3f84b55090a",
+                                            "postimageSha256":  "21b9a267682dc6aeb66e59472d1a449eeb75e00e18f95d1ffdc366d293e89f4a"
+                                        },
+                                        {
+                                            "path":  "printHash.bat",
+                                            "preimageSha256":  "7b1a7b405e4266ced68e2d8eb51005853d1ea67c47e9ee9180ffe8b2521e94f4",
+                                            "postimageSha256":  "37ce3a5f9eb6276d34bec273d21e88b70080f2e5c112a83ea1ef0c98d6f1c3a1"
+                                        },
+                                        {
+                                            "path":  "printHash.sh",
+                                            "preimageSha256":  "bff5ceb72e9c0ce5d4a2deb045069985c462f07dabb01a693b181ff3a81f81cf",
+                                            "postimageSha256":  "1f9d1396f8a6e2f63b4409bc78518dda3fc6531424c61d69fddab87d5075b855"
+                                        },
+                                        {
+                                            "path":  "src/animation/AnimManager.cpp",
+                                            "preimageSha256":  "8a5d7b682d56a8a0a73dcaa7dd498d5ce1fb69ee6d343b4c7ff5c44e609c8bb7",
+                                            "postimageSha256":  "8fb8cc77e115f0c37721e82d9c904e6deec6d5df5066b7e0aae08cedb9f42790"
+                                        },
+                                        {
+                                            "path":  "src/animation/CutsceneMgr.h",
+                                            "preimageSha256":  "0ed03c4bb434ec60ba670d2cb0ca77ce0686b74cec4c4e8751c3480f9838977f",
+                                            "postimageSha256":  "76dced1c1fc46f2c372a25934caaef69db2fc2a95eb40f9f0e2e113e0a5e16b8"
+                                        },
+                                        {
+                                            "path":  "src/audio/AudioLogic.cpp",
+                                            "preimageSha256":  "0a2c5687cc88cb6f9333ae0a63faac1febdf732e54a787106e7dd26080d42bf4",
+                                            "postimageSha256":  "47a850520ad81da1a6148630c9177d30b796191b22ee95f28a7d206a15ee3af9"
+                                        },
+                                        {
+                                            "path":  "src/audio/MusicManager.cpp",
+                                            "preimageSha256":  "553ff57314594123acf651b9fbf04112e644527a1d34615b6c642a3611931b06",
+                                            "postimageSha256":  "67b5f2a76ee4a991770ef6fa8b2642bd11c5235c902d2599052179bf3551f921"
+                                        },
+                                        {
+                                            "path":  "src/audio/oal/stream.cpp",
+                                            "preimageSha256":  "a3eb3752632c34f4e549236f705c69e05fec90b59af9eb947a8c2a74fc3b470f",
+                                            "postimageSha256":  "69ecf3a79b9b40a61bc2eea6c8ace01657ce7108894415442694304475f97812"
+                                        },
+                                        {
+                                            "path":  "src/audio/oal/stream.h",
+                                            "preimageSha256":  "d5d8340201ad89b1884477ff5ff51e835a07594ce149790b96a8918c7ffd9cfe",
+                                            "postimageSha256":  "260405006b7198846231c372eda46796a064234cceaed3c8037881c7bf13b0b9"
+                                        },
+                                        {
+                                            "path":  "src/audio/sampman.h",
+                                            "preimageSha256":  "1817607d63ec63f1ccf7a2ee68809bb6cdb726238a3bda0649183c1c6b08e13c",
+                                            "postimageSha256":  "2fe9f92112dc031a96c5bb5533960849d6e9a4f04084391f8d5afdda95657b6a"
+                                        },
+                                        {
+                                            "path":  "src/audio/sampman_miles.cpp",
+                                            "preimageSha256":  "2f6da017c2ec79e25d7f5d1b2f0dc0fc95df67f09a382f1628b0968616494182",
+                                            "postimageSha256":  "9764bf6b8e053957fb6a3c2831b40e1d20bc9d1e96f9fd9f47052cbe03e27aca"
+                                        },
+                                        {
+                                            "path":  "src/audio/sampman_oal.cpp",
+                                            "preimageSha256":  "b9ce93194a334473cee702fe7e0c49cfa1299e4f96c77a71b28ab2fe035a260a",
+                                            "postimageSha256":  "8ed49b78dd66144fc745dc64271619ea9f00be596f0020439e6c3cee56e2543b"
+                                        },
+                                        {
+                                            "path":  "src/control/CarAI.cpp",
+                                            "preimageSha256":  "42afde2463f9c6d43924304a57eecc289e35e08f3e7052a8e9c5adf3f738634a",
+                                            "postimageSha256":  "ecafb47e41c46ccf4736e2198af020f9d22ebcfe53bd2ba5c8032fa74922e086"
+                                        },
+                                        {
+                                            "path":  "src/control/CarCtrl.cpp",
+                                            "preimageSha256":  "9a34e68ed845e8e1fbc697df4d7764c1be8218094329ee6663e7ff5b2f79af3b",
+                                            "postimageSha256":  "a7647fc501cb16d036ca21bc90474a6ea14a01595a424de08baaf50c282efb53"
+                                        },
+                                        {
+                                            "path":  "src/control/CarCtrl.h",
+                                            "preimageSha256":  "eac7ae6cfaf4336cce44de7bfc9d306723b630c27fe1ee3df08d20e2850e62c3",
+                                            "postimageSha256":  "3a62ef27a1ff2e555013ce4c87eef15b54be439e157aa12bb4f58a4b9903b326"
+                                        },
+                                        {
+                                            "path":  "src/control/PathFind.cpp",
+                                            "preimageSha256":  "349245d33f9082e18aee543190134ec876e26d8d66e83502f06d5f64992a9d61",
+                                            "postimageSha256":  "381d246f7ccf3b6c917eba890e32cf38eaeef03d579682485e1b5739095d60a0"
+                                        },
+                                        {
+                                            "path":  "src/control/PathFind.h",
+                                            "preimageSha256":  "fb96f94ba4077f5ee514ddbde4b2bb72af263ebe6916d9d56c3633f227a351e8",
+                                            "postimageSha256":  "778b1d08e6bdbbb1bb5eee8afc6bf708c7829b42ec49f9724835de4b879039b6"
+                                        },
+                                        {
+                                            "path":  "src/control/Pickups.cpp",
+                                            "preimageSha256":  "1dec3b927192de389e7eb3fd60d8210d2035c23e07319f1a7b0f69393ca7adb3",
+                                            "postimageSha256":  "0e07cadb4cbbd83b57b29faf12445f942bf025e4df2f36a70c7ae3045401bc58"
+                                        },
+                                        {
+                                            "path":  "src/control/Replay.cpp",
+                                            "preimageSha256":  "03fb5f1dbcc6f6f3bee27d4d58dba41e9518be8bd455e140764b7c6ca8d55329",
+                                            "postimageSha256":  "706117b7ee1a51cff392c66e4b3d15ee2be33d609622ea78a33e630f13893b32"
+                                        },
+                                        {
+                                            "path":  "src/control/RoadBlocks.cpp",
+                                            "preimageSha256":  "e2828b4ed7eb08f1f41425c7d149ccebb699b620c70021d61bdc30bcfba630a8",
+                                            "postimageSha256":  "cc3e40856f5ad0bb872dca169f9c2d9e70d2c00b15b5dfe2d8b56ff62758d110"
+                                        },
+                                        {
+                                            "path":  "src/control/Script.cpp",
+                                            "preimageSha256":  "49fd37d9ec93a4a11b6df8c1ff7a6c9342dcf0329a91e39e7940d62ec3546a02",
+                                            "postimageSha256":  "e6e64d6fbe7fa4448b2bc9d1351851ff8f1aa6e1389be7592fbf3c6df3255fd4"
+                                        },
+                                        {
+                                            "path":  "src/control/Script.h",
+                                            "preimageSha256":  "155d571cdf6f011ea2cbf0dc27b49914b15e4201d139553cdf2a41914875697f",
+                                            "postimageSha256":  "3cd7aabc4f81a1b9176741cd72ba6b48698a632d8e7cac3e61ebde1ce3cced9d"
+                                        },
+                                        {
+                                            "path":  "src/control/Script7.cpp",
+                                            "preimageSha256":  "949e658d1c44e60f799e221545a13e6eeb20e97ec2f83281591ad20ba378f494",
+                                            "postimageSha256":  "1f1b122c7f9ff4d6ebd216e1c2c53cb4e0fb9639d5f39557801560a8102a75a5"
+                                        },
+                                        {
+                                            "path":  "src/control/SetPieces.cpp",
+                                            "preimageSha256":  "f021a7eb920ca6fa83957b148f0838d69efdbef37ae318d2ebb401982894b73c",
+                                            "postimageSha256":  "7bbef2cc93c86b9540702916fea1d020ae48ff3d5bd93811b69fe8ed23a51245"
+                                        },
+                                        {
+                                            "path":  "src/core/AnimViewer.cpp",
+                                            "preimageSha256":  "e655dcaacaa8992d4946339865efd0b0e2f39588f02a1dc940495c66f9ec7178",
+                                            "postimageSha256":  "90a955fb179240ab74946ab9527dc5ac3b5ba1903be8340273e956ebcc1c6797"
+                                        },
+                                        {
+                                            "path":  "src/core/Cam.cpp",
+                                            "preimageSha256":  "f2c275ba7807188b078199bb25017608ac29a64f154b2a28914831610bc4538a",
+                                            "postimageSha256":  "c32ef9324e767e63d80a80ca3aae472f642b378456a8dc6b5ee17ea3573977d1"
+                                        },
+                                        {
+                                            "path":  "src/core/Camera.cpp",
+                                            "preimageSha256":  "e9d30ee7df392168cf4d2b5acb95191e701551950e9e603394fdcd13f3a91aa8",
+                                            "postimageSha256":  "2d475ce9897d50cdbebb85843b52653122b6ac00386aea8b44c2ae244de1fcb0"
+                                        },
+                                        {
+                                            "path":  "src/core/CdStream.cpp",
+                                            "preimageSha256":  "7b53ecc1363880c7a8216de9e6275ef012a46628f1188ea801d76cff01f8b7a8",
+                                            "postimageSha256":  "84d652006a805bd79e62aaa9b4f59bbebca6d85bc311a29c930eeb9835dbf1c9"
+                                        },
+                                        {
+                                            "path":  "src/core/CdStream.h",
+                                            "preimageSha256":  "fa635e737256b9c77561a8b6b1b77ba5eed3dae5ed00567738e8f223765cb8c6",
+                                            "postimageSha256":  "7cd4a19f82294a26be88326929f744f09cee363468b047da939df2b78635c648"
+                                        },
+                                        {
+                                            "path":  "src/core/CdStreamPosix.cpp",
+                                            "preimageSha256":  "23bfc9a80b78d2b481ffbd2deae476389c5db2d69ace9beb15f6c0ee9adb81b4",
+                                            "postimageSha256":  "d099bebf0731571eeee088795fd41129b211f62513d59c6ea54a58abc1d7ace8"
+                                        },
+                                        {
+                                            "path":  "src/core/common.h",
+                                            "preimageSha256":  "c4959f8f227dfdb2828df04baffe4d3e9c647409872b1683ed2b2206bd3a8186",
+                                            "postimageSha256":  "02a37cc532a3de890253acf56bdd6159f54f1d1507c8013046c699622690dac1"
+                                        },
+                                        {
+                                            "path":  "src/core/config.h",
+                                            "preimageSha256":  "0e98348f1391c1f95c074f9c858e72f1af27ab7fafa014242dd30a61f37de75d",
+                                            "postimageSha256":  "1c90439a6acc1a4fae457eb145ca186fc8adceafcccfacfe82b7b4a0b08ce929"
+                                        },
+                                        {
+                                            "path":  "src/core/ControllerConfig.cpp",
+                                            "preimageSha256":  "f716ec18c45a6870de53f1cbafa467a8a55d7c6a410ee6a28dc1ade810345cb2",
+                                            "postimageSha256":  "274a4917fa7f61daa9f983c95a6a865eadef17b03a8d836c47600f977ee37242"
+                                        },
+                                        {
+                                            "path":  "src/core/ControllerConfig.h",
+                                            "preimageSha256":  "a5297331013dfd72bc23a28551a194cbace8f32c26fa97fb4750d047fee2a253",
+                                            "postimageSha256":  "4750d3044e7eddfef817a51971b3dcc89dd8252cfdbc86364e2c25e6ed7e5647"
+                                        },
+                                        {
+                                            "path":  "src/core/FileLoader.cpp",
+                                            "preimageSha256":  "18439396405fb7fb31bd66177c7bb223bcfac97a9f7b21310fd97c098c543b8f",
+                                            "postimageSha256":  "e5806c71e3843ea1a7709f9e69757be5b121384771763471d001fe8764099498"
+                                        },
+                                        {
+                                            "path":  "src/core/FileMgr.cpp",
+                                            "preimageSha256":  "e209cd003cbb115f942ffc2434486ba921eae4115ae21813ca25dcb1623252ce",
+                                            "postimageSha256":  "56752ec268e2003c1fe10da0c0ef1f2668cdd1fc5ad59085c70f2d994d91c86f"
+                                        },
+                                        {
+                                            "path":  "src/core/Frontend.cpp",
+                                            "preimageSha256":  "2fb6c704a26227bc5d8484bd0a7280e999cfa1fc164e4a33341326ca74d636da",
+                                            "postimageSha256":  "c856f207d00261d8b2bdb3c89f8f263bf9fc8fc222c12a4530b98dfb994deb43"
+                                        },
+                                        {
+                                            "path":  "src/core/Game.cpp",
+                                            "preimageSha256":  "c5768e72df8e57c62c1408accc25119390d16aae4b607d8d5451884e2a659fc1",
+                                            "postimageSha256":  "d6a38d5dcc4027168c930a599414c5c60ab9d442abfe6082d51bcd91bdc400b7"
+                                        },
+                                        {
+                                            "path":  "src/core/IniFile.cpp",
+                                            "preimageSha256":  "72a4c51c303560fd2e82d6c8efcbf8b3c41fec683d24ff8a64f2f60aae29483c",
+                                            "postimageSha256":  "291a8b415ea22aa7bce905966e543a8048d4038cb0a07e5cd354f29f40c12a96"
+                                        },
+                                        {
+                                            "path":  "src/core/main.cpp",
+                                            "preimageSha256":  "1dbcc1495c3b2c6671565c264109568a6910d402dcbd741a42cff62faceb458c",
+                                            "postimageSha256":  "182ec692581b3cd996558455ea3200f49a5dbc534fb88d9eda269b9c2fd3cf72"
+                                        },
+                                        {
+                                            "path":  "src/core/main.h",
+                                            "preimageSha256":  "7bd64dd0a1eefe7378f5fb47d8c50507b70a9e6bb70c9d2a8482efdebe540cb0",
+                                            "postimageSha256":  "f5513375950e4d073c575bc4a79a479d0b94345ae407103673c959f640fc05b5"
+                                        },
+                                        {
+                                            "path":  "src/core/MenuScreensCustom.cpp",
+                                            "preimageSha256":  "8991c87a9c060325ed0d7d293ba8a90efb68197dff4723ac43db0b9bd710ce07",
+                                            "postimageSha256":  "c7859b8c12b15e58c6e7d204f16f635c02b1f9cf0d5aaf598b6935786d087195"
+                                        },
+                                        {
+                                            "path":  "src/core/Pad.cpp",
+                                            "preimageSha256":  "bd49fd56bfb44ebc93f9426eb6e35c7fe437cfb31e4c0b6d44f25447a96226fb",
+                                            "postimageSha256":  "a90d414b55b703d75a9302558cba15fc4669b350462b818edcab7c3d756a9032"
+                                        },
+                                        {
+                                            "path":  "src/core/PlayerInfo.cpp",
+                                            "preimageSha256":  "519815ef35f1d902ba654a0294184dd32059538a45f1b6cf9a9c2bc4d4de0a94",
+                                            "postimageSha256":  "5bcab021afceaa0f8b5822dfc6570349e2842c8ecbebaa349a9c67aee094fac0"
+                                        },
+                                        {
+                                            "path":  "src/core/Pools.cpp",
+                                            "preimageSha256":  "67a5c8ac84b6bd8c223a92ede9430f5a03a7a80f8aa38775fb7b842c80ef5707",
+                                            "postimageSha256":  "199419bf6076f0fd840612e51fe92d868d34c1036bb30585045f88e035ec73c2"
+                                        },
+                                        {
+                                            "path":  "src/core/Radar.cpp",
+                                            "preimageSha256":  "bb6a67c25218569b4865ce86dc969be9ffd99503dc615dd890925e8ac3e4930b",
+                                            "postimageSha256":  "35c95d3123380edb100d8a8867a60835f4985cb3abae3b609df53f67d4422ca7"
+                                        },
+                                        {
+                                            "path":  "src/core/re3.cpp",
+                                            "preimageSha256":  "f3967bf2b0a1401f9f37ef50f8c352cdff7e6207ce3648e7e92d267d80fa82c6",
+                                            "postimageSha256":  "d765b391187e2c21238d843ccc6196c568756fa59673f45b0ff9b62980612bee"
+                                        },
+                                        {
+                                            "path":  "src/core/Ropes.cpp",
+                                            "preimageSha256":  "720eb4a5e211854bb39f7b76d2590f7701ff6e80586517d05478ae5531f56cc2",
+                                            "postimageSha256":  "568e17a4bfa148a279634bf8b7ae6aafbbe6fc4585f7d7ace2b7ada14a9dda1f"
+                                        },
+                                        {
+                                            "path":  "src/core/Streaming.cpp",
+                                            "preimageSha256":  "3c5a07c7a3e207faf750935ca77b959f840c343243fe56dbc8d6cdda48ec3f97",
+                                            "postimageSha256":  "47433a28b23a2ac3303a297ce354a35e92a33060a1928c1dce27e673f0b1dc67"
+                                        },
+                                        {
+                                            "path":  "src/core/World.cpp",
+                                            "preimageSha256":  "e352086772c8c4d99348a25919400a22578fc026c982a0cb2333899320f947cf",
+                                            "postimageSha256":  "79541dd020e4b8af432a668dcb2867624099ffd9d6daea8ad811ee1c25f16461"
+                                        },
+                                        {
+                                            "path":  "src/core/World.h",
+                                            "preimageSha256":  "5047fe72c72e49ddefba7b36505a488b60d874d67d204f89e582b5a38dab311f",
+                                            "postimageSha256":  "af5a72cc86df9fdcffb6d0b188205b3c947888b54aa3bc449944f88e5ea7ca58"
+                                        },
+                                        {
+                                            "path":  "src/entities/Entity.cpp",
+                                            "preimageSha256":  "5c1e7d6a95c2fa48fb8de22dc1b8c4897a09910e2d8538aaf1495d468df58976",
+                                            "postimageSha256":  "cab58881b769f7b1b1516bf567f11bf963e3702bfdedd93244c15c5cee4dc573"
+                                        },
+                                        {
+                                            "path":  "src/entities/Entity.h",
+                                            "preimageSha256":  "05e12bf23bf7828c2be788eb9fb66d80f95ed6e59d2181bfe203f389432e5e9e",
+                                            "postimageSha256":  "0fba6f60cc26638857e7a5eddba133db91cbaec0d28385347393e4a759ea2275"
+                                        },
+                                        {
+                                            "path":  "src/entities/Physical.cpp",
+                                            "preimageSha256":  "56fc42753e15ad66c1bda7dbaf7597a8f7f44230ba8b0cc9b5e8f7e86340f1cd",
+                                            "postimageSha256":  "8732788c9c2563c1bde3af572970e61b414008d25e1056c32b87479d14163873"
+                                        },
+                                        {
+                                            "path":  "src/extras/custompipes.cpp",
+                                            "preimageSha256":  "b4903e8c5855ffb8f6f6623a56d95593351f73229d79b68de6869875855f5b6b",
+                                            "postimageSha256":  "e1e6633dbad35a3718b61577faaa047212d44ce0467178d8c56ad0535bb9b591"
+                                        },
+                                        {
+                                            "path":  "src/extras/debugmenu.cpp",
+                                            "preimageSha256":  "51fabd5623b699273ce091c69e00b4a23e1c5ec2044e2a803a18f5d5c9901ec8",
+                                            "postimageSha256":  "e80415b73a32e6227af04ef2ea7b0ace903e25597264c6cec02beac1f0a67aee"
+                                        },
+                                        {
+                                            "path":  "src/extras/postfx.cpp",
+                                            "preimageSha256":  "7260d0bc07e9f6f01746048550a325a8fb50e24cd3767d1b104e7f658f721715",
+                                            "postimageSha256":  "3b87820ca66286c61419b2e022a87796c178f7551a03256090fdfe9cf7c2f631"
+                                        },
+                                        {
+                                            "path":  "src/extras/screendroplets.cpp",
+                                            "preimageSha256":  "5b1d0b5d298c8c5cd6119b975a75b6bc5d0f420526b132e4382da0cc44bbcbbb",
+                                            "postimageSha256":  "c9dc5b1ca87549bebcd7996debe0517029085b55e98e669c4373fbc7e181619b"
+                                        },
+                                        {
+                                            "path":  "src/fakerw/fake.cpp",
+                                            "preimageSha256":  "1f85593224add95faec0cb75b8bf2a778d6ac7a94743a1e277c841620dc824f3",
+                                            "postimageSha256":  "d60f3d7458db5410c7558210ededfd20751968d199043adfa3907aec53a15c8a"
+                                        },
+                                        {
+                                            "path":  "src/modelinfo/SimpleModelInfo.cpp",
+                                            "preimageSha256":  "51efa876ea18e5ce45da2b8a3e14bbf933f7b86dd42f50ac64a72f6d5ff26968",
+                                            "postimageSha256":  "c1d7d144b5ed644f6f6c4560efd94978099dfebf32aebd03dc88d14a9d69e268"
+                                        },
+                                        {
+                                            "path":  "src/modelinfo/VehicleModelInfo.cpp",
+                                            "preimageSha256":  "b4159ec30b3658bc90e84eaf3268cc8afcc10e1e8fd33f0ad71de26de7c55147",
+                                            "postimageSha256":  "b080c7fe3be0c43858e249307c98ce2d5654bfac4ee86adbe0246c91a9a7fbc9"
+                                        },
+                                        {
+                                            "path":  "src/modelinfo/VehicleModelInfo.h",
+                                            "preimageSha256":  "0f23241aa5bf66d8045ffd94386e0e1b3e30e5cd9b06df1aefae8352b36a3e50",
+                                            "postimageSha256":  "c7b4b7bb77f1e3fdecd84a39c0ca2e73f199788747d5b1f2b648d97a710037f6"
+                                        },
+                                        {
+                                            "path":  "src/objects/CutsceneObject.cpp",
+                                            "preimageSha256":  "6ba493cb09f94ddf0ab93d9007b9c073d20c2d7cd6760d35bcfc9b9936f5d2d6",
+                                            "postimageSha256":  "65acaddfc04d6a017c3af6483b60769a578910a99505d9a2b72401bd70a9c3b8"
+                                        },
+                                        {
+                                            "path":  "src/objects/ParticleObject.cpp",
+                                            "preimageSha256":  "7c08be30cb8f3078606a21d4decca5300aa34201fd0d4ac7eaf3f4eb65177f56",
+                                            "postimageSha256":  "60812c2316db6ec1eb3e0a39e8cbc4be2806ede8b521020a0c5570ef0c1e6812"
+                                        },
+                                        {
+                                            "path":  "src/objects/ParticleObject.h",
+                                            "preimageSha256":  "047aeca6296a9f960ea7b1c28be0988ed65e5bf049d12b37d79459933775dd83",
+                                            "postimageSha256":  "3aa4736f8f97268f75f367d9b1d8bd8707e94af0955e395aaefa18b5b1ae9456"
+                                        },
+                                        {
+                                            "path":  "src/peds/Ped.cpp",
+                                            "preimageSha256":  "710cd5a0662682b087c8310447f9f65817962b3f657c11ae0335c473309627a4",
+                                            "postimageSha256":  "47e5048015ba243f556d822783ce010ffb70d6ad9400e6e4c9bb57e6c367167e"
+                                        },
+                                        {
+                                            "path":  "src/peds/Ped.h",
+                                            "preimageSha256":  "aedcb5147453789f34be4f2a7052a20f22f144a2cd9503d74831215494ef66c3",
+                                            "postimageSha256":  "4c5ad2340422e279832a0020906c195967dd6e504122721bb73bbedf99536139"
+                                        },
+                                        {
+                                            "path":  "src/peds/PedAI.cpp",
+                                            "preimageSha256":  "f16c4044709fc829808bc3d7276860285df2d4537256b56a6f8636db1b1d3c90",
+                                            "postimageSha256":  "63ce97ddc051ebea655c0c49b2dbf6eebf2b2000bc4ac27c4adb8cf7a9689f12"
+                                        },
+                                        {
+                                            "path":  "src/peds/PedFight.cpp",
+                                            "preimageSha256":  "4190e6522f8092148e22dab9b7fd84c03ae7c99e016134c2fb6bfe387de5b7aa",
+                                            "postimageSha256":  "3c7bf3658a72ee997b0f51ce450ab0b3112027a737239fa2c9eb2fc4017211ea"
+                                        },
+                                        {
+                                            "path":  "src/peds/PlayerPed.cpp",
+                                            "preimageSha256":  "7ff9cfd410166072807b5f65e8b6390a7fbc1b18c5c5d3c6ec8ae022041ab37e",
+                                            "postimageSha256":  "d14c1e1439c342a26e26e6afde68f161415d2b15b2cdcf53bbffb904f6250d01"
+                                        },
+                                        {
+                                            "path":  "src/peds/Population.cpp",
+                                            "preimageSha256":  "3ee2ab28b34350d5c2e212bdd656cb224e260e8579c0e37feea459e81bbaf644",
+                                            "postimageSha256":  "0a01e39a94c9c5b090cebf85fec8f8b9ec5b2e0df586c25630406455d1135a4d"
+                                        },
+                                        {
+                                            "path":  "src/peds/Population.h",
+                                            "preimageSha256":  "187cd1aa3447627a61000cbb53af5258e8763ff99ff7dd4a31bee3e6128fd58d",
+                                            "postimageSha256":  "d9641b565a27bd5ed9da1ab9092d8fc25aee2218b5637a7b02c7000ae7178f15"
+                                        },
+                                        {
+                                            "path":  "src/render/Antennas.cpp",
+                                            "preimageSha256":  "36c97331079ee3a68c0af365875b6ad7d5a198d6d0ea74f410579e2ef534ea57",
+                                            "postimageSha256":  "f265d435ea19763d72d181bfb7489a637e1768a3c9d7dfc15c6dbeafa3608820"
+                                        },
+                                        {
+                                            "path":  "src/render/Clouds.cpp",
+                                            "preimageSha256":  "32ff2901553665643593087d0c8bbab562e7379f856da8caa0de0ccd92661ec5",
+                                            "postimageSha256":  "2b62c897898e0fdce7a298b8d61c9fb7819c96a23e13ce0e430782e11d4122d8"
+                                        },
+                                        {
+                                            "path":  "src/render/Coronas.cpp",
+                                            "preimageSha256":  "0b55eb06595c109190f10d39bd23fc2bc51be91d4aa4b79907e14a1405415197",
+                                            "postimageSha256":  "5952ec0a529241648e63ef1bbcb42d5a6ef4d6ee2b3f93212469dce6127220d7"
+                                        },
+                                        {
+                                            "path":  "src/render/Fluff.cpp",
+                                            "preimageSha256":  "870dee9b53ecc21a2e346cff8231dd354ceb84141df1b5a1d15a625b1f02e35f",
+                                            "postimageSha256":  "eeee25827b171f374914088b48615df1f0854c8d6884180bf3c6b3b80d77dec9"
+                                        },
+                                        {
+                                            "path":  "src/render/Glass.cpp",
+                                            "preimageSha256":  "3e7346d82e8d2ddbd5d02596d31363df6f17cef76c2f57155b40cd13080b332e",
+                                            "postimageSha256":  "1f00b98b15e0f6852dde5a6bfd711992fb07df1fe26015f53e9d0d6130948812"
+                                        },
+                                        {
+                                            "path":  "src/render/Hud.cpp",
+                                            "preimageSha256":  "0face03aec3ceccc7e45606a37a1ba728c83a737a57002896ef405a5b14371d1",
+                                            "postimageSha256":  "d0da4dea4f0064713bf77564ddafe4a1e60ebe6b22041a7ba36ff12045c98aa0"
+                                        },
+                                        {
+                                            "path":  "src/render/Hud.h",
+                                            "preimageSha256":  "96a52872089f4942bf60dc102138a330f5506de19f589f8afe2a035800f69670",
+                                            "postimageSha256":  "2d11ce60659cbc935077dfb81bda36c57cd11cb3ac17f4f7634bf2885c0c0e28"
+                                        },
+                                        {
+                                            "path":  "src/render/Lines.cpp",
+                                            "preimageSha256":  "a725fbf5ecbaea2bae5a5ddaf0eb1dadbac2c9ce8a8e3cff8779ef1b640244e9",
+                                            "postimageSha256":  "9e02078ddc9d8dfb339d8557bf506282961b1a90aa0f9777e959a9e7bf3b010e"
+                                        },
+                                        {
+                                            "path":  "src/render/MBlur.cpp",
+                                            "preimageSha256":  "8248c51b3480a7cd47297bea93d14e0c34987493ed7be204c8679ce8eeecb763",
+                                            "postimageSha256":  "7ec8edf4b32178523f6403f1e4d7c673a1d8187d2fa933b1e43aaf23f2f2dc82"
+                                        },
+                                        {
+                                            "path":  "src/render/Occlusion.cpp",
+                                            "preimageSha256":  "ada6a1cdc6cff8d97720635f7c535f2bc6f277a092ab89e489c8c31323d33f15",
+                                            "postimageSha256":  "dc5efa30eb5311e7a4852ad992ab5973df5ba2978f642ef046e5c55fb6310f9b"
+                                        },
+                                        {
+                                            "path":  "src/render/Occlusion.h",
+                                            "preimageSha256":  "6a1bebf1bd646e63e5e4eef93cf9621eae1a06b44b56eededda792d3514e9c70",
+                                            "postimageSha256":  "625bb2154ec2d6fcdb7c5317d1ce86203a030dcb2a8c53b2bcf2c4d06216f646"
+                                        },
+                                        {
+                                            "path":  "src/render/Particle.cpp",
+                                            "preimageSha256":  "8466e51a1c5e1714ac37bfc5452d30d286b2d66ff4707283c55c452e3fa7c68e",
+                                            "postimageSha256":  "5bef31c916a9a0bb5daa8e74967ac57e1eba977b205da0c5e4a3270d0b8d3c88"
+                                        },
+                                        {
+                                            "path":  "src/render/Particle.h",
+                                            "preimageSha256":  "5f0d389bc828719246ed495c4af3953fa180e61466a0f49e55eb1bf93beee7e9",
+                                            "postimageSha256":  "bd356af3af9d9952429a134666998f15726eee8d01cab8caef81134a2ff5678e"
+                                        },
+                                        {
+                                            "path":  "src/render/PlayerSkin.cpp",
+                                            "preimageSha256":  "fd70c3a2c6280e1b4e7cb1adfb19ed662620a5595af4882d11e44d8143a84fb8",
+                                            "postimageSha256":  "2243695600afbc7881b8dacf8509e61d3a957a94b771942d917a7f0ff62dfc0f"
+                                        },
+                                        {
+                                            "path":  "src/render/RenderBuffer.cpp",
+                                            "preimageSha256":  "9e4e6c6ac38c0c68b83d5c15454d0d987525a359a23c101a6317b72067de84f9",
+                                            "postimageSha256":  "33142db72ad999f247be3da798da30ddf88bedaf6d9bf3ca168c72b087d5d1ae"
+                                        },
+                                        {
+                                            "path":  "src/render/Renderer.cpp",
+                                            "preimageSha256":  "fc984e301235842d765d42df4f624bd129bd419f29accdf74e4e67565c7aae41",
+                                            "postimageSha256":  "f4d72887997eab15bea991a39d903cadbfd40737a00ab8920dba9f8a847763bd"
+                                        },
+                                        {
+                                            "path":  "src/render/Renderer.h",
+                                            "preimageSha256":  "8b9c3167a499fda0105706fa9c7b3dee247d431075e7cacc110bfc5e564127f8",
+                                            "postimageSha256":  "2ba6058d3d66fc4581098c34fe967b2fd1997a417619cef01b10bd4e9456fd62"
+                                        },
+                                        {
+                                            "path":  "src/render/Rubbish.cpp",
+                                            "preimageSha256":  "31be6c020166f2cac90e32ea080e29cf22e538d9b83635dc89bfb407239f14f6",
+                                            "postimageSha256":  "8336d439da73e8452110d09bc12cdbd3038ad005050d63818359c2afd245a2fa"
+                                        },
+                                        {
+                                            "path":  "src/render/ShadowCamera.cpp",
+                                            "preimageSha256":  "ddf544097234a31cbb571335ce22df5135d70c0198202ed6805ebfc6dec352be",
+                                            "postimageSha256":  "0663a6cf53cdb138cb6dffb46ec61dc2f1479a66871940276d76f003756da668"
+                                        },
+                                        {
+                                            "path":  "src/render/Shadows.cpp",
+                                            "preimageSha256":  "b9ccc77129b618ba0985b5f3d4fce748b6eaffdaf542a7a783becdb59d6ad792",
+                                            "postimageSha256":  "daab6498f87737e42a55e7a5f013c63a9672d11610f11d13005d1be049e9ad89"
+                                        },
+                                        {
+                                            "path":  "src/render/Shadows.h",
+                                            "preimageSha256":  "4230c2e9af33fb8e4ac1a47615dc101122c159d058bf34d2825a8708b03f0714",
+                                            "postimageSha256":  "e962273982fd766804af0ab9588eeeaf9eabe955886cc4836506222b762533fc"
+                                        },
+                                        {
+                                            "path":  "src/render/Skidmarks.cpp",
+                                            "preimageSha256":  "f2721c4e3c4acc861e42ae94e949302cc74ed89998c941f3faafe713cde4e813",
+                                            "postimageSha256":  "f533e682b41270b6bf4f924a4ecea132b99f10968c1a432c09bb6865590d9285"
+                                        },
+                                        {
+                                            "path":  "src/render/SpecialFX.cpp",
+                                            "preimageSha256":  "0e985dc60eaab2b78744e6d2c14f3a82b87f572650730b09ff1a2090bbec3acd",
+                                            "postimageSha256":  "e422b81643cc44204ca644839d6674c69cff36c2748472cecae3d19912a54287"
+                                        },
+                                        {
+                                            "path":  "src/render/SpecialFX.h",
+                                            "preimageSha256":  "5dc43c74da379c237e8b9094773ec2ad95bdd6123c55439025b78e9d8aa89d29",
+                                            "postimageSha256":  "c7337b50d85685c293c30e310286ac397449c571d1f43d0c619d9df0279105b8"
+                                        },
+                                        {
+                                            "path":  "src/render/Sprite.cpp",
+                                            "preimageSha256":  "c1ac655738a5dac31f39ad136562563c6feb11148818700dd5b97ff087740288",
+                                            "postimageSha256":  "3ac097b907083c9cf7312524a2fd98348964aab30c640fdf598458328180ab1c"
+                                        },
+                                        {
+                                            "path":  "src/render/Sprite2d.cpp",
+                                            "preimageSha256":  "d00abc524a8f0e57af2e1a19f7456a72ff77e5729eea745e8a8c1cf214e969c9",
+                                            "postimageSha256":  "0f828c2e67816995ade8c4138512e8f478f5ea9cf80b5eea05ea85986866068c"
+                                        },
+                                        {
+                                            "path":  "src/render/WaterCannon.cpp",
+                                            "preimageSha256":  "bdf7a4312271f09ae7c3651d8bed2d83b9eb6e2a8e2bb1aefe9dafd0bc1763c5",
+                                            "postimageSha256":  "df1c376a59bc56b48577453cae3b077a46ac0015aacd834053b4b693e5bbe928"
+                                        },
+                                        {
+                                            "path":  "src/render/WaterLevel.cpp",
+                                            "preimageSha256":  "f661e44a60c722a1a7d8a6a42e392ff67d35ded1763326b237fe3c19c98bd0fc",
+                                            "postimageSha256":  "2e6f2682a8fbcd9f0bf3fcbb01bd2aecdfc814421f62c83137c1ffa9e1915c7b"
+                                        },
+                                        {
+                                            "path":  "src/render/Weather.cpp",
+                                            "preimageSha256":  "87b78ab2662c6b102aa8cc3579df4fed3f2e4ba72d253603d9b75bf4a0cc3436",
+                                            "postimageSha256":  "8e487a028630922ccd0ef827d3a647c7b4c8b2946d0cbeacc750122bbd1a17d7"
+                                        },
+                                        {
+                                            "path":  "src/render/Weather.h",
+                                            "preimageSha256":  "9dc778f21bd972f2aafc4f59b1cd2d9113c7b2d45f3c978df398c23c812552f7",
+                                            "postimageSha256":  "0df08e8d9170df480eaa789ea7dbb413e2de979ba036bb7157b035720757530c"
+                                        },
+                                        {
+                                            "path":  "src/rw/RwHelper.cpp",
+                                            "preimageSha256":  "14a814fc8e1d2296e2b824233c3006351783bf80ec4c50d1279facc5a1a2d0fe",
+                                            "postimageSha256":  "01ee1aa732d7510b8c1b9ef9671f0bd93de46ee61ad94723133cd281762273a5"
+                                        },
+                                        {
+                                            "path":  "src/rw/RwHelper.h",
+                                            "preimageSha256":  "a61ce57486736e14773e4ddf028e3cb2706cc0b34cb95e5cf002e310b8facb02",
+                                            "postimageSha256":  "e1868111c871602fe8aa3da42a02df03ac849fad2232a56a409efb97b5b8a3fd"
+                                        },
+                                        {
+                                            "path":  "src/rw/TexRead.cpp",
+                                            "preimageSha256":  "ea84762db6b548b64a4caa701159f215e97741ab2623b8edfa1a3ae6a3703f71",
+                                            "postimageSha256":  "a0021bad169aaf0819e88b50baa390cc45e2c91c924a8164610e73cd3627bd26"
+                                        },
+                                        {
+                                            "path":  "src/rw/TxdStore.cpp",
+                                            "preimageSha256":  "46f1cd7f9bd9098c76271130249d69c4bdefb2bc4b68793c9f0df9682d08517c",
+                                            "postimageSha256":  "c8e457dcc2f7f00162e3144fbee075aaff7b9c0534a9bbddea33ea2aaeab6301"
+                                        },
+                                        {
+                                            "path":  "src/rw/TxdStore.h",
+                                            "preimageSha256":  "ac7091e1c8500af34a95482b141bb397f7021a525c5afc0a26b8db11b52af833",
+                                            "postimageSha256":  "27d07b98027737b803b06fa0227289f9e29f73fbd3e6644b18e900fe6d6d02bc"
+                                        },
+                                        {
+                                            "path":  "src/rw/VisibilityPlugins.cpp",
+                                            "preimageSha256":  "513a46d38a1eec356c8160ef115120a7cb2ac5d8fc9a087fbb53ee92ec8434dd",
+                                            "postimageSha256":  "a763a14bb7899ab60ff170633aff58b28c6d20bc42e6fbec0cdac8c0c70d2f0d"
+                                        },
+                                        {
+                                            "path":  "src/save/GenericGameStorage.cpp",
+                                            "preimageSha256":  "8f95ce3c589e77cd98d604e8f9538ed159c2eda0a0a7ce5b25c9552e7eac8089",
+                                            "postimageSha256":  "1284dc3f369f0733a473d73feecfc1e3279713c39a3cd3f8b1b7f6b12ff57bba"
+                                        },
+                                        {
+                                            "path":  "src/save/PCSave.cpp",
+                                            "preimageSha256":  "26afe2b4440cb3e8d7a0ec9ba869fa32a8c47a0ee9347e4a998706a50b4285db",
+                                            "postimageSha256":  "47fc34deb39b9a8b0e2e3bbfc05a57df9d1209fba12ee635eb8b4ec3ec09fd20"
+                                        },
+                                        {
+                                            "path":  "src/skel/crossplatform.h",
+                                            "preimageSha256":  "7629feecc9400f393c2d9f26ba2ddbbb9846f0c9e20b795e912322231e9b504e",
+                                            "postimageSha256":  "327ace2693e361b1d0fa60c94b48f3fd1c285b3d6272b3492680d5ee92c40e39"
+                                        },
+                                        {
+                                            "path":  "src/skel/skeleton.cpp",
+                                            "preimageSha256":  "30a87cc1615d78cce58275867b6e91071051c85c1075d6ce4be996301fb802c7",
+                                            "postimageSha256":  "a7812c87622b48cad908fc943c1f7e6976c4ec03dcc992a67251c7c5078a5bd2"
+                                        },
+                                        {
+                                            "path":  "src/skel/win/win.cpp",
+                                            "preimageSha256":  "c50b462da19dc070ccb77995a292e3d9d5802fd32b783183e16b9ce2b1ffcca8",
+                                            "postimageSha256":  "680ac125794917ba1a35b71eb237fb91863fbf82ad1f3df85f067adb4c7a1bb3"
+                                        },
+                                        {
+                                            "path":  "src/skel/win/win.rc",
+                                            "preimageSha256":  "4580002b3a992ac19e4e167df4927d9be245443c24502fc9621b923c1b2f77fa",
+                                            "postimageSha256":  "139138ef096d4186783f289c11d19446564429dfd152fec6646bb6995b4a04c1"
+                                        },
+                                        {
+                                            "path":  "src/vehicles/Automobile.cpp",
+                                            "preimageSha256":  "e81143a24ee5900802282667b13548e340ef215d226429541087273a700013f3",
+                                            "postimageSha256":  "9bf20cc55c260335236f78c2881170884cc7caabc36dd805e46a5173e42bef07"
+                                        },
+                                        {
+                                            "path":  "src/vehicles/Automobile.h",
+                                            "preimageSha256":  "225ed84eb265b33c2717ea4d55457016c17fb05c97cad9e59d8e3f35f055856f",
+                                            "postimageSha256":  "56cf268406c911284073ab05ebfdd0c2da6a6efc472ab8815571fd3b00cbd9c8"
+                                        },
+                                        {
+                                            "path":  "src/vehicles/Bike.cpp",
+                                            "preimageSha256":  "08295ccd1e3966e3ba58f8b5d5c26c3379e62a5b0cb9a6bdf54cd81292f6182d",
+                                            "postimageSha256":  "7dd12ecef5ee740383607340642f23f801969e79f5b0f98ac0b94b0226d422dd"
+                                        },
+                                        {
+                                            "path":  "src/vehicles/Boat.cpp",
+                                            "preimageSha256":  "8ed982a1f905a96576f73bab348e9c90de1225fe5314e2089435adad890984ef",
+                                            "postimageSha256":  "200eb1cf9e8e5e285664204bfe0f321cda69ba7cc646dda09daa90fb85352c89"
+                                        },
+                                        {
+                                            "path":  "src/vehicles/HandlingMgr.cpp",
+                                            "preimageSha256":  "055823b490349cdab70e8c95ad6f9f59a69d51cf0d92b24366a44f09df8275c8",
+                                            "postimageSha256":  "6c7ba207d8322f117fce3ba48eacea82586c7d761e8010bd61b3d1f1f2827919"
+                                        },
+                                        {
+                                            "path":  "src/vehicles/Heli.cpp",
+                                            "preimageSha256":  "8f29fc47437f2e9ce4f093230045e6a1c0ab1a496bb616b2e82d27fdc561e696",
+                                            "postimageSha256":  "31c3fb6ec5a071b8d6c0683a2e31fb43b2ae83f369ff011668f451fd88581eaf"
+                                        },
+                                        {
+                                            "path":  "src/vehicles/Vehicle.cpp",
+                                            "preimageSha256":  "b8f0543b694e2a26c225555c9949e95dadb2069496836240e9b04b6df322b5b6",
+                                            "postimageSha256":  "82cf14ba25c10905320a5c19e4c9f1109977d271de63beb71051190464137c7c"
+                                        },
+                                        {
+                                            "path":  "src/vehicles/Vehicle.h",
+                                            "preimageSha256":  "a40c773a2da5fd750ffbce94e6de66a43c4c36aafb68f5bfbd3e562e770c2419",
+                                            "postimageSha256":  "da441e7ccde69caf4ee31a9ef57c2bd61a39db25de54acf97dc24454f11b913c"
+                                        },
+                                        {
+                                            "path":  "src/weapons/ProjectileInfo.cpp",
+                                            "preimageSha256":  "a6dbec211a770d61c731bf2cdd65213659d07536a4b54187ecd0a13432fc23ae",
+                                            "postimageSha256":  "0e85dce106cf541dd3a78c382ebbe13361e6a221d364f252a07d0703b045e056"
+                                        },
+                                        {
+                                            "path":  "src/weapons/ProjectileInfo.h",
+                                            "preimageSha256":  "da016992aeede863918dc7b1f0922edd6c343f1cb93c2460abc4477e87b95c7f",
+                                            "postimageSha256":  "1db39afd688a832ff65583b6b2645488920f68096b52fa4d90eadd0086d134c4"
+                                        },
+                                        {
+                                            "path":  "src/weapons/Weapon.cpp",
+                                            "preimageSha256":  "05c53a74e0b2290f8166c026031aba004371baf0b5e1fa23dbe7c4f309f55d82",
+                                            "postimageSha256":  "aaa33986f08aab0721e872d00c9cdb4e0f955e714a188781c3d09dcedb955a4b"
+                                        },
+                                        {
+                                            "path":  "src/weapons/Weapon.h",
+                                            "preimageSha256":  "98580dbc0c9d90217a7356d6da1ea0b25c16b1f38f8cf23fe5a8c6c4fdd45616",
+                                            "postimageSha256":  "d8c9611b226e8c84a026e1efcc1884b753de68ffa12c94d7d33635cc8bba929e"
+                                        },
+                                        {
+                                            "path":  "src/weapons/WeaponEffects.cpp",
+                                            "preimageSha256":  "d8123fb2df2dc2b4cfeda2a6db3de09ea57055d588d9249073629423fd3aa193",
+                                            "postimageSha256":  "7e754e0ad2291423a8c44b3125b91282bded4de715152ef83c433c637d4c61ff"
+                                        },
+                                        {
+                                            "path":  "src/weapons/WeaponInfo.cpp",
+                                            "preimageSha256":  "8205eeb1383f6e237035519b8825beff25c1af71707ba202c8d8fc4aac37a6ee",
+                                            "postimageSha256":  "cb84c0107c13c53e25051b25da4bd544e358ad7cc175012f3eadf935383c0d21"
+                                        },
+                                        {
+                                            "path":  "src/weapons/WeaponInfo.h",
+                                            "preimageSha256":  "3405d3dfb06708ae770f568c4eb9041942b0a1ad4d38cf0a03e247ca428c3815",
+                                            "postimageSha256":  "c9c68137edc10c29e83b58b04c3f3997d8395104be3c9a3a9d7f9f88ccb077ce"
+                                        }
+                                    ]
+                    }
+                ],
+    "overlay":  [
+                    {
+                        "path":  "cmake/COPYING-CMAKE-SCRIPTS",
+                        "sha256":  "c666ec2313dba24523ccad88f4c04ea4b24fad6545263a35b1d4ab2b08efe50a"
+                    },
+                    {
+                        "path":  "cmake/LICENSE_1_0.txt",
+                        "sha256":  "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566"
+                    },
+                    {
+                        "path":  "src/core/ModelSets.cpp",
+                        "sha256":  "2aa3287c8c4e481af68ab3b2ce81d127c7c3bff897bdf26a3e1e4a187fc40d79"
+                    },
+                    {
+                        "path":  "src/core/ModelSets.h",
+                        "sha256":  "2e3a6620dd6185f0482078342f041e79ca022779fcb531371d135fc3ca3b08ad"
+                    },
+                    {
+                        "path":  "src/extras/custompipes_d3d12.cpp",
+                        "sha256":  "e07b36a5f4cf171a73e3be5ae1a1971d95d49a9dae02ba5ab7d404bfa3106a9f"
+                    },
+                    {
+                        "path":  "src/peds/VrRagdoll.cpp",
+                        "sha256":  "e99c0463a5d3fc2f20a2c04af37e32c7cce9f2a8ea2107b96ba3d1ccff73d0da"
+                    },
+                    {
+                        "path":  "src/peds/VrRagdoll.h",
+                        "sha256":  "1df50a101a0d497fd4048305572ada7e54b0ea1e8b255961b293b2c0abfea76f"
+                    },
+                    {
+                        "path":  "src/render/GameRenderCommand.cpp",
+                        "sha256":  "a6c6bbccde69f5c22cf65e0d684b6a1351fe85df55ae47062bd71d64f3851a54"
+                    },
+                    {
+                        "path":  "src/render/GameRenderCommand.h",
+                        "sha256":  "6440204233752b3fcb164a7b555285a96d31ef46bf11ba9da239a4ce8dd8e945"
+                    },
+                    {
+                        "path":  "src/save/SaveBlockBounds.h",
+                        "sha256":  "90685bc7bd402169770ff0f1bf43ce2d2de5fc7e50409d6a496684a4b2d8b824"
+                    },
+                    {
+                        "path":  "src/vr/DLAA.cpp",
+                        "sha256":  "a90333400265ffe02ae8389eb9f724929975e22954daba4790d7203f55fa5aba"
+                    },
+                    {
+                        "path":  "src/vr/DLAA.h",
+                        "sha256":  "ab22e132ab4c9f540af6b9ebacd55ab4c83b60039ddce048c6b7842c48258ea3"
+                    },
+                    {
+                        "path":  "src/vr/DlssNrColorInput.h",
+                        "sha256":  "7e1a0bd0304e4a532df6294d31a374dbda33bcd74b80b858a0710cc405c7592b"
+                    },
+                    {
+                        "path":  "src/vr/FSR2.cpp",
+                        "sha256":  "60d7bc1b3e2382b4337be965bde7bce56f8393999538dae575f5658f8588d6c2"
+                    },
+                    {
+                        "path":  "src/vr/FSR2.h",
+                        "sha256":  "624312faa64c6ff94176e526e074b8f6551b6d3837cd632f3607d4942442791c"
+                    },
+                    {
+                        "path":  "src/vr/MenuNavigation.h",
+                        "sha256":  "9d2c5cf38cf0a7ba68c77c87fda14a19248375cbfd63acadf4d8da90be70c58a"
+                    },
+                    {
+                        "path":  "src/vr/OculusVR.cpp",
+                        "sha256":  "31b75324d547e029415f87906fe43e5260f2b35a3bb4b264ae8128a9cfa4f0c0"
+                    },
+                    {
+                        "path":  "src/vr/OculusVR.h",
+                        "sha256":  "cfb718a6c8d2976e1c9a8c998a71a8314155b87c3e088a4be4f862b7d376b8b4"
+                    },
+                    {
+                        "path":  "src/vr/OpenXRVR.cpp",
+                        "sha256":  "0e5060313a80edfbf977a99578ac5ddd613920c2a23af433670926af912d9916"
+                    },
+                    {
+                        "path":  "src/vr/OpenXRWristHud.h",
+                        "sha256":  "237fad9fd6c10f0b13164600ca85dadc4ff6b581a8c5865fc59bd320a56ed29d"
+                    },
+                    {
+                        "path":  "src/vr/VrCameraHeadScope.h",
+                        "sha256":  "4cfc92a2f9b718fe6125b2279b20dc4399757f1329c99aa1b799c847037abaea"
+                    },
+                    {
+                        "path":  "src/vr/VRHandModel.cpp",
+                        "sha256":  "b775ed222cff1907b7879a021e1468341ae965c3c7a7c059d560adce5b7ed995"
+                    },
+                    {
+                        "path":  "src/vr/VRHandModel.h",
+                        "sha256":  "6aaae890533947244b1edca48611665c95d803c680fdb290d949f3e4d4277cc4"
+                    },
+                    {
+                        "path":  "src/vr/VrPadBindings.h",
+                        "sha256":  "d695562922c3f8a457a3ad501dc7a31938984514e9c0a4e4ffce23760956ca58"
+                    },
+                    {
+                        "path":  "src/vr/WristHudMath.h",
+                        "sha256":  "0013feccf966ec2307bfd7c89ba2b731348c93573c02fd66c769e270025d8356"
+                    },
+                    {
+                        "path":  "src/vr/WristHudSettings.h",
+                        "sha256":  "9bafa17f55f18bdfafae693ae09ae15053800bda93c9e00f43463ace01675eb0"
+                    },
+                    {
+                        "path":  "tools/dlss/COPYING-GPL-3.0.txt",
+                        "sha256":  "230184f60bae2feaf244f10a8bac053c8ff33a183bcc365b4d8b876d2b7f4809"
+                    },
+                    {
+                        "path":  "tools/dlss/forwarder/dlssnr_forwarder.cpp",
+                        "sha256":  "2b398b554c554cf374994cc97267da7a6b159987ce2db261257f234ceaa8ae9c"
+                    },
+                    {
+                        "path":  "tools/dlss/forwarder/dlssnr_forwarder.vcxproj",
+                        "sha256":  "8966543151930931384a540ef1c056fa973d76fccdf13a42d261791a78543057"
+                    },
+                    {
+                        "path":  "tools/dlss/probe/nr-chain-probe.cpp",
+                        "sha256":  "e7b76a9cd01ec9c679659ec8e0cca9868da4d8341c022f5a91ac42dba3e6be06"
+                    },
+                    {
+                        "path":  "tools/dlss/probe/nr-chain-probe.vcxproj",
+                        "sha256":  "776e0580fce943bfaa190f4e1d522f63fda15191df0ab8559e041b969aad0998"
+                    },
+                    {
+                        "path":  "tools/dlss/probe/nr-subrect-probe.cpp",
+                        "sha256":  "101aab6d1c6953f13a1c86a59248c1d783f0406973a289f0f5a99901aeddbbc5"
+                    },
+                    {
+                        "path":  "tools/dlss/probe/nr-subrect-probe.vcxproj",
+                        "sha256":  "04169def6241771b7e2264ec17cf44923e5395c38010c066079c32b154a6e451"
+                    },
+                    {
+                        "path":  "tools/dlss/probe/probe-gpu.h",
+                        "sha256":  "440a1c41b74c5328512b9f010426ddc7e3f634d6b603e1450aef739639568448"
+                    },
+                    {
+                        "path":  "tools/dlss/probe/README.md",
+                        "sha256":  "f01ecd08054845fd8b5284e16d9a9b03e0e32b15c7809eae6291594c1d3dcb2c"
+                    },
+                    {
+                        "path":  "tools/dlss/README.md",
+                        "sha256":  "be8f2fc6be91b83488012b9d6dfa67840d7da0e860c6316693f5b7127577c6db"
+                    },
+                    {
+                        "path":  "tools/performance/README.md",
+                        "sha256":  "78bf064ba0ed8d80c37a39965e130960fa00f8cb39ec6b82282eb648f952b3a5"
+                    },
+                    {
+                        "path":  "tools/performance/renderer-probe.cpp",
+                        "sha256":  "bebca7737418121ec25c02e98af440278f864c4d1bb3ec04983325f7ad09cebd"
+                    },
+                    {
+                        "path":  "tools/performance/renderer-probe.vcxproj",
+                        "sha256":  "12408ebd2114c1a170c23bf7c51ecdd9b498981937b58d76a7c23e550da5e479"
+                    },
+                    {
+                        "path":  "tools/vr/menu-navigation-test.cpp",
+                        "sha256":  "9ae370854639efd54650e03522c71e325bb193800ffb6721d24ca7ed2645645b"
+                    },
+                    {
+                        "path":  "tools/vr/menu-navigation-test.vcxproj",
+                        "sha256":  "b49334f2164aba79e74a4b427f3d480efb3fe86cdb72653e4ace040d1d4fb119"
+                    },
+                    {
+                        "path":  "tools/vr/README.md",
+                        "sha256":  "49e96a3486076460aeae151ffa1a5c1a8d46e242a6448073dddacadc4dbb825d"
+                    },
+                    {
+                        "path":  "tools/vr/tests/camera-head-scope-test.cpp",
+                        "sha256":  "73d70595b663e4a3bba908749973a3b8873b4a59e1bc4b0312ed33e3fed77d11"
+                    },
+                    {
+                        "path":  "tools/vr/tests/pad-bindings-test.cpp",
+                        "sha256":  "4c32e04a94b715ab17a5e63ab540b7c90a667275b9d0e95a352988c7278cf915"
+                    },
+                    {
+                        "path":  "tools/vr/tests/wrist-hud-test.cpp",
+                        "sha256":  "32890e29d4177a8100dae3c7892494af55a9a7f6a37661e0b8a2b417c5a7554c"
+                    },
+                    {
+                        "path":  "tools/vr/wrist-hud-test.vcxproj",
+                        "sha256":  "bca9cc031b8a24f75afec00502be8d5df4ddc7bdf806bc1856b8d14ac5a58c80"
+                    },
+                    {
+                        "path":  "utils/vrhands/convert_ultimatexr_hands.py",
+                        "sha256":  "ebdd98ae97e6d53f035b86fe9d03e7405ef1be6d0299546646431c2cf1c52dcb"
+                    }
+                ],
+    "librw":  [
+                  {
+                      "path":  ".appveyor.yml",
+                      "sha256":  "52912e1e99d86cbf500934bc16a6b454ae08b7872676616d6e8f4929c7f091a7"
+                  },
+                  {
+                      "path":  ".github/workflows/build-cmake-conan.yml",
+                      "sha256":  "485fa0a2055fa4e1e00efee8b64588bb38fa0ff92ce925dde6ecb8455cfc6948"
+                  },
+                  {
+                      "path":  ".travis.yml",
+                      "sha256":  "9a6522c235ddec64c505c0a5bc531ff40ebbc41e58bfd6a1df5b74ec6f477f42"
+                  },
+                  {
+                      "path":  "ARCHITECTURE.MD",
+                      "sha256":  "953e6325917619728f2e920694a19e89b625a2121b0ad57908bac4002fa0329d"
+                  },
+                  {
+                      "path":  "args.h",
+                      "sha256":  "191dcb9b3c3cc1d4848ed4c83ee8fad96d76ad62a1c347bfd7cdb6ab59c94142"
+                  },
+                  {
+                      "path":  "cmake/FindSDL2.cmake",
+                      "sha256":  "948649ae9e1d881bae7b028122d0ac19bfe2e23b09d95aec97578a4faac20a27"
+                  },
+                  {
+                      "path":  "cmake/librw-config.cmake.in",
+                      "sha256":  "552546b6ce3c382313178a878e88ace43c1613417d28b9efbfbf722dc9e964b6"
+                  },
+                  {
+                      "path":  "cmake/ps2toolchain/CMakeDetermineDSMCompiler.cmake",
+                      "sha256":  "eadfe4d21e1b40844f8abc117a8dfdcd0c9a0828ab41eaf7322d95d92754ae0b"
+                  },
+                  {
+                      "path":  "cmake/ps2toolchain/CMakeDSMCompiler.cmake.in",
+                      "sha256":  "f6d925abc96bfe8bc08e29d301709c32fada0cfb9423683d22706ae5ca339c4d"
+                  },
+                  {
+                      "path":  "cmake/ps2toolchain/CMakeDSMInformation.cmake",
+                      "sha256":  "c227ddca9be0f8d2c9b90e5415432f1ff7efe252c6bfcec66b191a0617811f9d"
+                  },
+                  {
+                      "path":  "cmake/ps2toolchain/CMakeTestDSMCompiler.cmake",
+                      "sha256":  "6ae220658623c89bff9d1c397bba7e787ea6c943c409aa9da616b8485bf3ffcd"
+                  },
+                  {
+                      "path":  "cmake/ps2toolchain/cmaketoolchain.cmake",
+                      "sha256":  "237ab27682a6646a06e28e460f0e97422e89a3b83fb3696070bacd656cb0d176"
+                  },
+                  {
+                      "path":  "cmake/ps2toolchain/conanfile.py",
+                      "sha256":  "b111c55ab75f2332bc4c220393d62fa7654817ef360873f93b625f9040105069"
+                  },
+                  {
+                      "path":  "cmake/ps2toolchain/Platform/PlayStation2.cmake",
+                      "sha256":  "cb1aa6d7292928f35e1f5b7fe360feb80b700778d6d717a3308198cfa02ea7b7"
+                  },
+                  {
+                      "path":  "cmake/ps2toolchain/toolchain_ps2_ee.cmake",
+                      "sha256":  "90e1d56051909230b31a989d1f27a85e4e349b7e6e7c4a59bb03c9bc6555beaf"
+                  },
+                  {
+                      "path":  "CMakeLists.txt",
+                      "sha256":  "fa4c65ab26c3e3c440b92c67a7b9c2434485c7bef2b9194b0df737e788940f9f"
+                  },
+                  {
+                      "path":  "conanfile.py",
+                      "sha256":  "b421fac3202671ebeea1e328f5e107c5ccb05a150e1a516e4580760c7a9d2a64"
+                  },
+                  {
+                      "path":  "docker_rebuild_ps2.sh",
+                      "sha256":  "2f7d1fe631d14e110e0e218730f896df7b59d152fc2ea171cb2601828a78d232"
+                  },
+                  {
+                      "path":  "LICENSE",
+                      "sha256":  "30f63291230db85f1a16c90ec95e5ba03b77bb37782101179291f31d81e25b65"
+                  },
+                  {
+                      "path":  "premake5.lua",
+                      "sha256":  "48fa115e9aa7f271c5316261e624e27ae165a3e407472e16ef81b614a47b166b"
+                  },
+                  {
+                      "path":  "premake-vs2019.cmd",
+                      "sha256":  "fa21ca87cc2a5b6ebabb1929edb0479bda3dc49e4491ee4377fe59b5bcd05db9"
+                  },
+                  {
+                      "path":  "README.md",
+                      "sha256":  "60666dfdca78b6e04ec2985eb3712f137bfd273ce6a6de1cca489ce3bf243bd9"
+                  },
+                  {
+                      "path":  "rw.h",
+                      "sha256":  "37fe403844f731125f97e4e551ec37dec1f5ed9cf0bf6becf0707d86f127c027"
+                  },
+                  {
+                      "path":  "skeleton/CMakeLists.txt",
+                      "sha256":  "88c43470480edde36d42c1bcc3491d3e884e40995994af2045ddcb65d7e3d227"
+                  },
+                  {
+                      "path":  "skeleton/glfw.cpp",
+                      "sha256":  "7816109e1b77a3f79eb62278eaeba75e76ecf7168780e3fe2a4f5f8d8fb75285"
+                  },
+                  {
+                      "path":  "skeleton/imgui/CMakeLists.txt",
+                      "sha256":  "c7d2ca0d02d2f77675a39fceb59fffc8bec42ba7c359328adeff49de0e86eabd"
+                  },
+                  {
+                      "path":  "skeleton/imgui/imconfig.h",
+                      "sha256":  "95fad10c4fee531aa76dbc9c0e45b2db28693d814e3b7a31626606ccafe3b862"
+                  },
+                  {
+                      "path":  "skeleton/imgui/imgui.cpp",
+                      "sha256":  "697824168b39ca2e5eab0b3243d5a73b80a154cb789c1a71c25af96051c48a73"
+                  },
+                  {
+                      "path":  "skeleton/imgui/imgui.h",
+                      "sha256":  "bd52a13e71d18d4c4828c149f3575a8d7a1e21b04590669632fae72ad202176f"
+                  },
+                  {
+                      "path":  "skeleton/imgui/imgui_demo.cpp",
+                      "sha256":  "c2e3aa1cdfa122416227711261c4149c915b87b4cc49a3dddeec4a4757f5fce9"
+                  },
+                  {
+                      "path":  "skeleton/imgui/imgui_draw.cpp",
+                      "sha256":  "95794da98f654c00f956b894969b533a2c0c8106981b026b5d570d9a27a14734"
+                  },
+                  {
+                      "path":  "skeleton/imgui/imgui_impl_rw.cpp",
+                      "sha256":  "27ef77f59b5e2990a9715f302306c284b781c3deeb51156b2a4a487b05d63214"
+                  },
+                  {
+                      "path":  "skeleton/imgui/imgui_impl_rw.h",
+                      "sha256":  "cf785c9d28415585f5a23971fb4311c70d0efef4fead5f9b45bbb0873d4bfb17"
+                  },
+                  {
+                      "path":  "skeleton/imgui/imgui_internal.h",
+                      "sha256":  "d0b7ddf0be95672ee72d3fb7224672309cb8c440ef8dd47a56cef7ec974a4971"
+                  },
+                  {
+                      "path":  "skeleton/imgui/ImGuizmo.cpp",
+                      "sha256":  "fbe17cdf3c2f00108aed0ef086c5960fca718f3a96c5525ead255e1c84d52a21"
+                  },
+                  {
+                      "path":  "skeleton/imgui/ImGuizmo.h",
+                      "sha256":  "26b550902410af47bb2f9dee8f41ae1e0e317ffe71b2e25f6de5e189364327b8"
+                  },
+                  {
+                      "path":  "skeleton/imgui/LICENSE_imgui.txt",
+                      "sha256":  "bdac6956ac58f950d473cc60967bc6b30f553fa46d6f9781f85e2313194cead4"
+                  },
+                  {
+                      "path":  "skeleton/imgui/LICENSE_imguizmo.txt",
+                      "sha256":  "aad1f9df039fb26d448bb398cf6f09f5e480617e05f41f2afc3b996959759eda"
+                  },
+                  {
+                      "path":  "skeleton/imgui/LICENSE_proggyclean.txt",
+                      "sha256":  "fe61d069df303c697e04200f5f8232c2cb09dd3572f4357b323469f7d592d142"
+                  },
+                  {
+                      "path":  "skeleton/imgui/stb_rect_pack.h",
+                      "sha256":  "9435f6dce0ee2445f16a401ac61f2eb17c85df4590e89c197207931b5469e84a"
+                  },
+                  {
+                      "path":  "skeleton/imgui/stb_textedit.h",
+                      "sha256":  "6d8f4da651a3d05dc989ed66ed832a7ca406012a6aeeb17e6f5265a51d8562cb"
+                  },
+                  {
+                      "path":  "skeleton/imgui/stb_truetype.h",
+                      "sha256":  "6fcd44ca57fcf54030952818c4c62265793e39ffae7f8ff8ed05a233ffddc119"
+                  },
+                  {
+                      "path":  "skeleton/sdl2.cpp",
+                      "sha256":  "3a0a56af0958ad262c79156d2b92a9778dfe782ea38a3c083426ceee3445d934"
+                  },
+                  {
+                      "path":  "skeleton/skeleton.cpp",
+                      "sha256":  "b95cddbcb2f3a9ee8a0145a115409f20cdab70a305dd6f9eb1278ed92388c639"
+                  },
+                  {
+                      "path":  "skeleton/skeleton.h",
+                      "sha256":  "c84da115bd23c12f56235fd6bec367fe3138df4d4cf95cb106f66ddcc111f1ad"
+                  },
+                  {
+                      "path":  "skeleton/win.cpp",
+                      "sha256":  "deda48d10af60f6f3cb44194ffeb15fa018d4df4ade2f8773c90e78f75022d3f"
+                  },
+                  {
+                      "path":  "src/anim.cpp",
+                      "sha256":  "506b14ce9fe7cadbd43fedba5b07c49dcfd763782b6c94fb45ae75f4c499a65e"
+                  },
+                  {
+                      "path":  "src/base.cpp",
+                      "sha256":  "31967f68b65ec98e48b3b9052a17ddff68585e93a38745a825bdfb64efac6a41"
+                  },
+                  {
+                      "path":  "src/base.err",
+                      "sha256":  "f0b85a18d6b2b18d5c79a6604cc8a84232cecc194e563f241986fbfe97e045a3"
+                  },
+                  {
+                      "path":  "src/bmp.cpp",
+                      "sha256":  "70619753e1d753c10ddc19088265280228ca34fb819cc4e2815b6a4c24ce3451"
+                  },
+                  {
+                      "path":  "src/camera.cpp",
+                      "sha256":  "2705dd5442debb8f25d767611f486f51f14de0fe0509ca9a3d2dd4c6841be323"
+                  },
+                  {
+                      "path":  "src/charset.cpp",
+                      "sha256":  "f84ad38379b66f9c63bec8ca66cca64f1903b80ae80e9a6d70678bb7e16819ab"
+                  },
+                  {
+                      "path":  "src/clump.cpp",
+                      "sha256":  "67e17c4b9b37cecb8de571b768e7f322750b4d0f642474c54ddb21a6b5faa9f9"
+                  },
+                  {
+                      "path":  "src/CMakeLists.txt",
+                      "sha256":  "5f3168f56ccbe0ebc81a1450ea3e1d097b676866b4552b9ec9c5a6f4df853b1b"
+                  },
+                  {
+                      "path":  "src/d3d/d3d.cpp",
+                      "sha256":  "01e14d09ee68c311ea8f0b42e9e211a39a38c5d03f1c78936460007b8494cd42"
+                  },
+                  {
+                      "path":  "src/d3d/d3d8.cpp",
+                      "sha256":  "5a6fb5e07521654d8247702064144799a6958401180fd80d02d8cc2277e1f0f3"
+                  },
+                  {
+                      "path":  "src/d3d/d3d8matfx.cpp",
+                      "sha256":  "e81be01685be0138f10276ad891700c877ac78ac2477f520394436b31265de8a"
+                  },
+                  {
+                      "path":  "src/d3d/d3d8render.cpp",
+                      "sha256":  "e1d8e1c2c1afb85510a0e706a4c3f0f655b7414bfa128e0d507cda3408db29d5"
+                  },
+                  {
+                      "path":  "src/d3d/d3d8skin.cpp",
+                      "sha256":  "7c2d4e775859862e1210cf28e334172b18e8824108d0a5d0dcad813cf4883598"
+                  },
+                  {
+                      "path":  "src/d3d/d3d9.cpp",
+                      "sha256":  "0489bd01b9c515be01ce6985670a9c5c106c0c7eaa8dde2859164fd38449673e"
+                  },
+                  {
+                      "path":  "src/d3d/d3d9matfx.cpp",
+                      "sha256":  "05d161671237891d2b60cdec1e031c5d3a8ba86dae6a66f0bab775ff160a94a0"
+                  },
+                  {
+                      "path":  "src/d3d/d3d9render.cpp",
+                      "sha256":  "5fcb5734f3c4f391971e4c24f4b28138263305cb8247576daed83c150c004e95"
+                  },
+                  {
+                      "path":  "src/d3d/d3d9skin.cpp",
+                      "sha256":  "31133f818dc7eb170e37a14f1f112bba26346966eaeab180f122284096d847a4"
+                  },
+                  {
+                      "path":  "src/d3d/d3ddevice.cpp",
+                      "sha256":  "e6e02870c6ad7cebcf5f5e37ac29019be0462a780f8d0d31ef9ea8f2ad385058"
+                  },
+                  {
+                      "path":  "src/d3d/d3dimmed.cpp",
+                      "sha256":  "dcf6b33dfb836040ee09aefeb9d610e4afac1ce84eeb88873145b5c0f2dc2630"
+                  },
+                  {
+                      "path":  "src/d3d/d3drender.cpp",
+                      "sha256":  "aa3f8c4d37c3d228a222f8d2f90f82d75dd13868f5be9a4454ddac77d15f2d2a"
+                  },
+                  {
+                      "path":  "src/d3d/rwd3d.h",
+                      "sha256":  "b05026eb7df5fd4658967f2d12d75124afc765d2a7fa0ea5c17ff1242381830e"
+                  },
+                  {
+                      "path":  "src/d3d/rwd3d8.h",
+                      "sha256":  "c549fdb2a107e8e78809c8cb147db0ca85be595aa342fbdbd64c178c9caabf69"
+                  },
+                  {
+                      "path":  "src/d3d/rwd3d9.h",
+                      "sha256":  "cc22bd3c01151f17fce53ce34a9c3f201e3c207b84a8d4495974f249b4b1c880"
+                  },
+                  {
+                      "path":  "src/d3d/rwd3dimpl.h",
+                      "sha256":  "56c8df53e64414752f3ef09d8da860896af6f82a71b5e32e00b86d0b5fc7c051"
+                  },
+                  {
+                      "path":  "src/d3d/rwxbox.h",
+                      "sha256":  "7abdb4f57c3814aed4cb229ef508ded43ea6ec0f0f2642b4d967002e6b2fbf19"
+                  },
+                  {
+                      "path":  "src/d3d/rwxboximpl.h",
+                      "sha256":  "26debdd1a6c144f803ed6c69474a444998fa4b7045662303928bc0e93840575d"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/default_all_VS.h",
+                      "sha256":  "bd5fbe25082c2dec0583e8232f3b0179dcc3bb7b45911ef8e5062aed3588a504"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/default_amb_dir_VS.h",
+                      "sha256":  "105970076ae42cc4c809e725a8fb545adb1d219300be1435446987673e5feb86"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/default_amb_VS.h",
+                      "sha256":  "d93add8addb4f7d9f6ee7163a7b880d0511dcaedbb15a016f679e29806ea10be"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/default_PS.h",
+                      "sha256":  "6f92a63d50882566222a19278ba22e928d1934dec9638990afb0f3ec52d6f2c9"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/default_PS.hlsl",
+                      "sha256":  "c30812b6fb0f2877289c4c0dbd8ecc3416d41df331fe566f692c4fb3d1fb6bdb"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/default_tex_PS.h",
+                      "sha256":  "1a35321b0cb85b083d94dd8d8772e0be2e3bbf21b5353087971b750d36ce0886"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/default_VS.hlsl",
+                      "sha256":  "7a150bbe2a26821795864b9d09074b77fa2502543d68c2fd19d64ff46a7924ab"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/im2d_PS.h",
+                      "sha256":  "b2c66982448b058a5f48c53cb322382702f4befbae2534eaabf488bb029522b3"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/im2d_PS.hlsl",
+                      "sha256":  "c30812b6fb0f2877289c4c0dbd8ecc3416d41df331fe566f692c4fb3d1fb6bdb"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/im2d_tex_PS.h",
+                      "sha256":  "b5d83af2654f7e9c1dfdd894786fe466b772072fe68cf7fb4f644c3cb262246f"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/im2d_VS.h",
+                      "sha256":  "3caa0741b42f6731c1b316c0cb212fcd0bd3d960c12319883e512c69836c4752"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/im2d_VS.hlsl",
+                      "sha256":  "39843233409df73639e762500ef032a2cc8b043b3ee53dedbbef64ebd5ea0ca3"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/lighting.h",
+                      "sha256":  "dbff0ab6e83b290b05bce41462e4aba5691578e6810f52b45d2766f37d4c4603"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/make_default.cmd",
+                      "sha256":  "604610c1458cfb802987c63609df50db91f784c3c3f065ae0255768d5fd0afa9"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/make_matfx.cmd",
+                      "sha256":  "fd619464496bdc062453b948352e28421eeb997d9e1dee1170195320f7f8d052"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/make_skin.cmd",
+                      "sha256":  "f21d0f1de4c0b7ef7ca7566b4be925ddbe046c4bc3562017e72e056173517ef3"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/matfx_env_all_VS.h",
+                      "sha256":  "9ea6850da94ea1a6b991e591018768a6363593a201596af5bf0d6b72d661701f"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/matfx_env_amb_dir_VS.h",
+                      "sha256":  "4c6f80eff23de7a03e62bb415c0a6a6f3f1642415bdd3b0e793ed02e144ebe44"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/matfx_env_amb_VS.h",
+                      "sha256":  "93b626354e09f062b251c2a686173571f96f28265e17e8b1f8ced01009a93cca"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/matfx_env_PS.h",
+                      "sha256":  "24d88b0b2e2505184f63a4ccc354913d0024b6a4893b5ebfca40539fd018bbb6"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/matfx_env_PS.hlsl",
+                      "sha256":  "df98b1b9eef4504729386cf7228cfa14c4e7692aaeb712c3981719c47361fe8e"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/matfx_env_tex_PS.h",
+                      "sha256":  "e0774708edbd3c541725e843d0fc7a4aeecd5347cdfaaba3016f00f0ce6572cf"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/matfx_env_VS.hlsl",
+                      "sha256":  "7c450b3b07d63681bbc952159405c6e864714af8ef753a3a877ce661e4724102"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/skin_all_VS.h",
+                      "sha256":  "a74b8f185fd89d3243c403bb6b9affbc9f1c3675a62c8c32ddf67bf19d699d4f"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/skin_amb_dir_VS.h",
+                      "sha256":  "7b07300a007c026771ca08caff4a2501a998a2dfa840401a060d24c735d035c2"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/skin_amb_VS.h",
+                      "sha256":  "749cf939058086ca74e29de41be5349f9c9304c0b1ff1a8d814e58a30d808c6d"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/skin_VS.hlsl",
+                      "sha256":  "00fb00a1f0a262009a743800226e217e4bf8924eccefd5e53a9d4769b8bf050f"
+                  },
+                  {
+                      "path":  "src/d3d/shaders/standardConstants.h",
+                      "sha256":  "2e0db8a0317d5501a763aa66d12bdbaf2f6ffd8d53ea99ae851705022a44ee6d"
+                  },
+                  {
+                      "path":  "src/d3d/xbox.cpp",
+                      "sha256":  "c1cc419f537202bfb7a166590a82b8104b6cfb5ab34b419b9586f011d42f9e9b"
+                  },
+                  {
+                      "path":  "src/d3d/xboxmatfx.cpp",
+                      "sha256":  "8fba6db68bc3617eb9e89a8029d94c61ccd92b3725f2b436b200325c34b06ab8"
+                  },
+                  {
+                      "path":  "src/d3d/xboxskin.cpp",
+                      "sha256":  "20862f58ce39fcf365f53f131ccc50e80b9a205caebc34f200fbd9a1eee8c7ea"
+                  },
+                  {
+                      "path":  "src/d3d/xboxvfmt.cpp",
+                      "sha256":  "695574e90ed933fcdd142646b7255fa58fb8e8892576985e39dc4a53be7be585"
+                  },
+                  {
+                      "path":  "src/d3d12/d3d12alphacoverage.h",
+                      "sha256":  "e473505f61dc030930beca8cc7cdd2154d1340a61febf95a9887fb1b56b20769"
+                  },
+                  {
+                      "path":  "src/d3d12/d3d12device.cpp",
+                      "sha256":  "404842ee4dbb0217bd72c1c751943f0c6d26af418d83983b41041c132e6b4d61"
+                  },
+                  {
+                      "path":  "src/d3d12/d3d12im.cpp",
+                      "sha256":  "5bd5cfb6be5541a777fcc382e49ffcdde5f08657e1c01907de79d22919390fab"
+                  },
+                  {
+                      "path":  "src/d3d12/d3d12pipe.cpp",
+                      "sha256":  "5148501fdd74e7a2e9df93a15a23899d297edfe133e421e489293e8d7614c23e"
+                  },
+                  {
+                      "path":  "src/d3d12/d3d12raster.cpp",
+                      "sha256":  "765eaafdd2371ec962ea5f886ff8cfb89fc4298d753a9dd381dd55e913f711ef"
+                  },
+                  {
+                      "path":  "src/d3d12/rwd3d12.h",
+                      "sha256":  "30aed8ed5f2b60a5f943747ccaae20b6989fdf378b8fb6333211a6c5f844577f"
+                  },
+                  {
+                      "path":  "src/d3d12/rwd3d12impl.h",
+                      "sha256":  "986c0bc2f070982d2b347b6de711b88a272b96e264b3367bcd9badca07955a96"
+                  },
+                  {
+                      "path":  "src/engine.cpp",
+                      "sha256":  "6ef8b4d6cb26342dd148aa1b6c39775592663122e336c0f201323d00cd2547c7"
+                  },
+                  {
+                      "path":  "src/error.cpp",
+                      "sha256":  "7ea503e17df07515b4b5cc5ed9d9ab7c0bd199ed2fe663a9cd80ab0e0afb8dd4"
+                  },
+                  {
+                      "path":  "src/frame.cpp",
+                      "sha256":  "3a429ac08a0db92742b155e44e535f8598af7dc31d6b4cf562f1d76cef6aa8ba"
+                  },
+                  {
+                      "path":  "src/geometry.cpp",
+                      "sha256":  "06b85ed8cfd3e2c2eafc02cfe2e960c9228d95558b366fee92fa67dc020e216e"
+                  },
+                  {
+                      "path":  "src/geoplg.cpp",
+                      "sha256":  "d567971f5b7d19575d0c071b33d898f347272868b74d12343c34859ebc2afccb"
+                  },
+                  {
+                      "path":  "src/gl/gl3.cpp",
+                      "sha256":  "44ff75d18a1a0765e305e70705ea1862a0af04abb27f7a416098f3c26e8b28cd"
+                  },
+                  {
+                      "path":  "src/gl/gl3device.cpp",
+                      "sha256":  "caeb758a498cb1360d135ab672efc55ca35e10e3f5fb2dc970e76133fd5f33f4"
+                  },
+                  {
+                      "path":  "src/gl/gl3immed.cpp",
+                      "sha256":  "818e4a59dc35ccaa2213af8eb010395210699a80d7ebb52e7dccc6ba9023fe80"
+                  },
+                  {
+                      "path":  "src/gl/gl3matfx.cpp",
+                      "sha256":  "24f20610cc23b05ff972bbb1e0074072a15c2cfec5a1efe6fe6228ccd9372b69"
+                  },
+                  {
+                      "path":  "src/gl/gl3pipe.cpp",
+                      "sha256":  "98094c5f1f3a423018c112f042480b89a585df8a833055971ff976fdd017089d"
+                  },
+                  {
+                      "path":  "src/gl/gl3raster.cpp",
+                      "sha256":  "055e7d2cb07b0be1d003c8573fcd62f1fdd48f93d612efa57d51a8d44b4d08a9"
+                  },
+                  {
+                      "path":  "src/gl/gl3render.cpp",
+                      "sha256":  "e96d4c61e117e4cd06f9937dadf0e15c795c62677001d2bf6f4d01f11b8aaa04"
+                  },
+                  {
+                      "path":  "src/gl/gl3shader.cpp",
+                      "sha256":  "5ba3872fd2489dea3c5c54834283c4593d9f46fc34cd36705c1b0a705f47e61a"
+                  },
+                  {
+                      "path":  "src/gl/gl3skin.cpp",
+                      "sha256":  "7527ec73825759738bc44414e782db0f3f7c80aff9fe05da4eff7b6bc71ac86b"
+                  },
+                  {
+                      "path":  "src/gl/glad/glad.c",
+                      "sha256":  "0fbfcbd20ed6fea84399ad952b6942f9aed33ce696de016873a39dfe48798ecd"
+                  },
+                  {
+                      "path":  "src/gl/glad/glad.h",
+                      "sha256":  "39fd124a1202bbd07686e37301ee60b76c259d318f0e920ba64aee47d3d92436"
+                  },
+                  {
+                      "path":  "src/gl/glad/khrplatform.h",
+                      "sha256":  "03e9b2fb1a06a67dfcedb8b67da62cbd508c4cd2c4c913dbe3c4b5813213105a"
+                  },
+                  {
+                      "path":  "src/gl/glad/NOTICE_glad_generated.txt",
+                      "sha256":  "4b2b25469915c5f59bf4d50262ea33b443cabb5cd1ec6e26788986baab984690"
+                  },
+                  {
+                      "path":  "src/gl/rwgl3.h",
+                      "sha256":  "06e31c261197c4038b9e80c9d137ac55137f542005e51815e7043823eaa48a17"
+                  },
+                  {
+                      "path":  "src/gl/rwgl3impl.h",
+                      "sha256":  "e93496f1b08bcd8786196b9a48c5c52d2fe9963d5a91bccdcd1f726ec38e47de"
+                  },
+                  {
+                      "path":  "src/gl/rwgl3plg.h",
+                      "sha256":  "f73075a040531bffa61f3b06b077a2a15f9cb36d82699de81c066542070de5a9"
+                  },
+                  {
+                      "path":  "src/gl/rwgl3shader.h",
+                      "sha256":  "495eeb572a286d95be32d7dd37e9f9e1a83ef8c0a8edd391f61e8a1a32c3b0eb"
+                  },
+                  {
+                      "path":  "src/gl/rwwdgl.h",
+                      "sha256":  "ecc141ff2b1e3405226ff26bd84f6cb2fefddb56851df731cec071b29515f020"
+                  },
+                  {
+                      "path":  "src/gl/shaders/default.vert",
+                      "sha256":  "c67dd6d3953708108ba86594f630dee5cba3933c2bf43006b6dbbadd3a1932f7"
+                  },
+                  {
+                      "path":  "src/gl/shaders/default_vs_gl.inc",
+                      "sha256":  "064d5e99af8ec1f574b18e7cf2351fd45f51cf9818223add62617f062e0e0f39"
+                  },
+                  {
+                      "path":  "src/gl/shaders/header.frag",
+                      "sha256":  "dd17dcaf83adabf30621dd381f2b9de1209e02265b795528836fda0a2c144ed5"
+                  },
+                  {
+                      "path":  "src/gl/shaders/header.vert",
+                      "sha256":  "9d301a61e7da3e4d1259cec0340cedd2ac85a859b705358377d147a62bb89439"
+                  },
+                  {
+                      "path":  "src/gl/shaders/header_fs.inc",
+                      "sha256":  "bf53123d1dad7a8fa033b1f6da3a978db38d8d8ea31b3a0c59ecef96a749580e"
+                  },
+                  {
+                      "path":  "src/gl/shaders/header_vs.inc",
+                      "sha256":  "b1cfbfcb77e1df999cd5e4c30934a53e91fa7b848235fea826a2fe2c8d1eaab9"
+                  },
+                  {
+                      "path":  "src/gl/shaders/im2d.vert",
+                      "sha256":  "fa5b3938ab1c08295f04540ab9d962d495ba86ac0d8d8f62af902f65ee7a2aec"
+                  },
+                  {
+                      "path":  "src/gl/shaders/im2d_gl.inc",
+                      "sha256":  "7ec471077ef60fc52cd153d63af9dfbe92c27592090f87fe2f9fa7566a17030a"
+                  },
+                  {
+                      "path":  "src/gl/shaders/im3d.vert",
+                      "sha256":  "a45b9907bbb52b7d546a97f4c9147d7f7be37b26264816bd5c4c75e786b59ecc"
+                  },
+                  {
+                      "path":  "src/gl/shaders/im3d_gl.inc",
+                      "sha256":  "2b2457e09804d0464a655ae57be70abf0b6f0e8be020594e799c06cdfa921d05"
+                  },
+                  {
+                      "path":  "src/gl/shaders/matfx_env.frag",
+                      "sha256":  "0f175aa5a860f4209ef9ff8d082fc978e504ad708b2bbc7d740789a11574fb55"
+                  },
+                  {
+                      "path":  "src/gl/shaders/matfx_env.vert",
+                      "sha256":  "f86d3b5281769764f71d67eeeb0b4bb88212ecc8db1416f88b9d898fd4af207c"
+                  },
+                  {
+                      "path":  "src/gl/shaders/matfx_gl.inc",
+                      "sha256":  "4b9381125deb38fe88095a8614bb561f17dc79f57dcf3174b87fa19ba944cd7e"
+                  },
+                  {
+                      "path":  "src/gl/shaders/simple.frag",
+                      "sha256":  "a9e2aa2606fd4ffbea823cf2e75ef4b41b76b84dd1b405b61ea8291bde129c47"
+                  },
+                  {
+                      "path":  "src/gl/shaders/simple_fs_gl.inc",
+                      "sha256":  "fd4b4ae782e872e24b9cef4ec8dce5f6b5320641572f27ff6df458c0477e25a3"
+                  },
+                  {
+                      "path":  "src/gl/shaders/skin.vert",
+                      "sha256":  "25b8025756c9ad9c8361431f6b6c7b06a50117c65374b88e392be3678de12003"
+                  },
+                  {
+                      "path":  "src/gl/shaders/skin_gl.inc",
+                      "sha256":  "aaa477185cd5d58863cd08b87bb2ae771c0438565c563d050661290781fe48bf"
+                  },
+                  {
+                      "path":  "src/gl/wdgl.cpp",
+                      "sha256":  "202d4b78ff1c24328d0d79d1e5a90529fdceeab156522f6d0064b4f5dd062546"
+                  },
+                  {
+                      "path":  "src/hanim.cpp",
+                      "sha256":  "940fb4125e3b6a51d7c8d8d07553742794981fcecc4b767c7741c552676d20b6"
+                  },
+                  {
+                      "path":  "src/image.cpp",
+                      "sha256":  "0969da53bf2899c99f4dcaf0aac07e1f19b74b1eed58f64d6f350a68a627c368"
+                  },
+                  {
+                      "path":  "src/light.cpp",
+                      "sha256":  "241e6e46753237c3eef811f5228d5456957b783c63f5957b5795777b2f057f76"
+                  },
+                  {
+                      "path":  "src/lodepng/lodepng.cpp",
+                      "sha256":  "92aad8142153202d4040052a31117017e4d156d22851d92e125fc39b19fbe4cc"
+                  },
+                  {
+                      "path":  "src/lodepng/lodepng.h",
+                      "sha256":  "f973c4d9ad05589c4ce2a1273e0d92137beaceb72cbbcd5881c3078eca5342ad"
+                  },
+                  {
+                      "path":  "src/matfx.cpp",
+                      "sha256":  "54b093a98b71ec3acda12df4b339166564875d1fdde444cb10e087dff0c3463b"
+                  },
+                  {
+                      "path":  "src/pipeline.cpp",
+                      "sha256":  "dd5fc4a180759f7be989ef1354a333e458824eace7043f7bb0e3355282792d7c"
+                  },
+                  {
+                      "path":  "src/plg.cpp",
+                      "sha256":  "aeea140d25a9ddad102791f85ad0af18ed3f9053fcae48e57f91b17bb9ee18db"
+                  },
+                  {
+                      "path":  "src/png.cpp",
+                      "sha256":  "68de002fc68c716d3540082eb020bd2c607725c2df124d250eba55a054b23590"
+                  },
+                  {
+                      "path":  "src/prim.cpp",
+                      "sha256":  "c33a36d0b411fd3f9a26f784c5568023939fedd82f1863582808d4d17c2cd43f"
+                  },
+                  {
+                      "path":  "src/ps2/pds.cpp",
+                      "sha256":  "c19f83ff6fcc7f111b6201ee8e52910caf9237a976b663254cb050a3198be78f"
+                  },
+                  {
+                      "path":  "src/ps2/ps2.cpp",
+                      "sha256":  "665593eb4fe44044aa1aac319a48f843c803aa810ad4ec2a691dcaed62b4faf6"
+                  },
+                  {
+                      "path":  "src/ps2/ps2device.cpp",
+                      "sha256":  "a7738b88cc3e50db169965cb5091ee93c00d3b26cf65ecd2ecc983777ede3e3f"
+                  },
+                  {
+                      "path":  "src/ps2/ps2matfx.cpp",
+                      "sha256":  "7ac24527872793dcd43a162520c4a7a2210426a85bec961695c80ab8e6abaa72"
+                  },
+                  {
+                      "path":  "src/ps2/ps2raster.cpp",
+                      "sha256":  "02a92f20c2f79a877a9825e7a932752ade8ff0573e8a9f269592a8650ab8f974"
+                  },
+                  {
+                      "path":  "src/ps2/ps2skin.cpp",
+                      "sha256":  "819e92a0c662f40441f619440e3a312a8d84081f5e146f157cc968364f19370c"
+                  },
+                  {
+                      "path":  "src/ps2/rwps2.h",
+                      "sha256":  "8bb54288513584ded1668926686780f1b27a75184ef1dc0dcb59e25622d8a713"
+                  },
+                  {
+                      "path":  "src/ps2/rwps2impl.h",
+                      "sha256":  "53ca3d8265e37127c35499154fc95a22c1fa1df1b0b4bc56774e98d4a96d7b83"
+                  },
+                  {
+                      "path":  "src/ps2/rwps2plg.h",
+                      "sha256":  "a8a4a56121fc7baa34f279e0d7380a53b0df8b6dfcbea88553a0ec462a4b0df5"
+                  },
+                  {
+                      "path":  "src/raster.cpp",
+                      "sha256":  "e0e9ff8af2853a4c162653f233063da97aa913abf41a1ef726115197d3fb2e10"
+                  },
+                  {
+                      "path":  "src/render.cpp",
+                      "sha256":  "d7f98df7bacb80b0027928f336d948988b44eb0be80aa9dafcb4bc3861a8043d"
+                  },
+                  {
+                      "path":  "src/rwanim.h",
+                      "sha256":  "3981fda30a480e1d9ca05120d00ce36478496f939215d3a320f2852a7fb86f0c"
+                  },
+                  {
+                      "path":  "src/rwbase.h",
+                      "sha256":  "83fdaf0f0cfacb609784fa688b8800ae74b7dae2f3148cb39b34f75502223a8e"
+                  },
+                  {
+                      "path":  "src/rwcharset.h",
+                      "sha256":  "0f84ac4e97b8eafe3dc280de113debbdf555f64066c21b6d8a8fa583f8c896c8"
+                  },
+                  {
+                      "path":  "src/rwengine.h",
+                      "sha256":  "4583db5ea394994d0a401934fe948a83fbd1850157b99024a1b2ab66f2d0b8ae"
+                  },
+                  {
+                      "path":  "src/rwerror.h",
+                      "sha256":  "8b252ffe9a0786da657d862e8a239357f5d839df5b09bf495fe835ea622743da"
+                  },
+                  {
+                      "path":  "src/rwobjects.h",
+                      "sha256":  "9cf338e9e7f0c066545c408a375b4932bdde09e6d0a907703b0dd78e0b66c398"
+                  },
+                  {
+                      "path":  "src/rwpipeline.h",
+                      "sha256":  "6d3cdd1cbd871a073627cc3153e3556741101b2ffe3644e9db94309a5af78686"
+                  },
+                  {
+                      "path":  "src/rwplg.h",
+                      "sha256":  "29e3ed61c1bac6b14f31b982a818d016c4b6ee357d66ddae8d5b996625b32ff7"
+                  },
+                  {
+                      "path":  "src/rwplugins.h",
+                      "sha256":  "725c781903f3fd10606cc69dc9201a72eada369c1d0d025412681a1709d81861"
+                  },
+                  {
+                      "path":  "src/rwrender.h",
+                      "sha256":  "1b99f9b0ed01dea407b2b58841007da99e3187365e29664558fedc3389778ecc"
+                  },
+                  {
+                      "path":  "src/rwuserdata.h",
+                      "sha256":  "2c8d9217c30f0ad324fcffdb515a92d93aa7095a061197b1f92c8a6661e7219f"
+                  },
+                  {
+                      "path":  "src/skin.cpp",
+                      "sha256":  "f2884f6dfcc73c0bdbc4205a2176861186a54cc2de0a581d85ed40384c3c715b"
+                  },
+                  {
+                      "path":  "src/texture.cpp",
+                      "sha256":  "7b9802c0827c9c9349b00835de50f1e10a49d6dab42fe07ed68c2256030be0b0"
+                  },
+                  {
+                      "path":  "src/tga.cpp",
+                      "sha256":  "aca3c56fbd852b78d011511f22c30bb077334924c64a276d474d9f92831027e4"
+                  },
+                  {
+                      "path":  "src/tristrip.cpp",
+                      "sha256":  "4dc4353acc57496f9f1fc5a9b9046404c923ce2b471b0af24c92a90ea21cd6d5"
+                  },
+                  {
+                      "path":  "src/userdata.cpp",
+                      "sha256":  "086c3945002debe2f63a20ea683d5e37cff858175a45396340c8ca35e2984294"
+                  },
+                  {
+                      "path":  "src/uvanim.cpp",
+                      "sha256":  "16b437ce73cbfb8c2cbb5c11ac95bce5e3e044f9ddf1b59c6821865aef1d8dbb"
+                  },
+                  {
+                      "path":  "src/vgafont.inc",
+                      "sha256":  "5b1e8f71a1709e41a4c532392c340dccda6fac042c2736804307a0ef449648ac"
+                  },
+                  {
+                      "path":  "src/world.cpp",
+                      "sha256":  "ddaa0f45474aee5e3ce605c4bea0434a7c5be1dda901aec3c4ae4ab1bbf2ce23"
+                  },
+                  {
+                      "path":  "tools/CMakeLists.txt",
+                      "sha256":  "db722a75774f7694a786602fcf84eb7f845dc9d39585b6c73b1c0b950bf30984"
+                  },
+                  {
+                      "path":  "tools/dumprwtree/CMakeLists.txt",
+                      "sha256":  "99c3f2a26efc778ef27dd92e6f0dc1b55c6cf96455812989c569ca2c7f389f53"
+                  },
+                  {
+                      "path":  "tools/dumprwtree/dumprwtree.cpp",
+                      "sha256":  "f10b706f97f244292004cd2e5cfd28f5d989660762ca09911754e8af887454bc"
+                  },
+                  {
+                      "path":  "tools/imguitest/CMakeLists.txt",
+                      "sha256":  "26b9ca560e611bd4f6e69dca8355efac34712a0d2d6c01b22942f08b9e6e16f1"
+                  },
+                  {
+                      "path":  "tools/imguitest/main.cpp",
+                      "sha256":  "c136b6b6a2e5bf2e3efffab2f2160de80d39e54fc9c25ed59a0f5d4971b476a0"
+                  },
+                  {
+                      "path":  "tools/lights/main.cpp",
+                      "sha256":  "bdbfba62e744e7b662fa806a67290223d88beb1b4330cef0a9e51dadde75ba63"
+                  },
+                  {
+                      "path":  "tools/playground/camera.cpp",
+                      "sha256":  "d1c2f59ed6e4b64d4288262f5720034236b594222f00a9f5693ecd7cbf2d76a9"
+                  },
+                  {
+                      "path":  "tools/playground/camera.h",
+                      "sha256":  "fa1fd64c93b29307c2d4a3f833cf0c2583ff8bffb7958471a1f9174670f0bb65"
+                  },
+                  {
+                      "path":  "tools/playground/font.cpp",
+                      "sha256":  "8ff18cefb7dd06bc14e812e800a9685a34312afeede4a7d81a43310e9d6fc4a9"
+                  },
+                  {
+                      "path":  "tools/playground/main.cpp",
+                      "sha256":  "4dc8cdd2379b53ddcb5399ddee016122e58cdde3775393d62ab5d94ca7da9cd3"
+                  },
+                  {
+                      "path":  "tools/playground/ras_test.cpp",
+                      "sha256":  "a092805aa812ce7a7e135acb32e9e7b816189f96fe1407b5ecbd1389e2c7d3b9"
+                  },
+                  {
+                      "path":  "tools/playground/splines.cpp",
+                      "sha256":  "04fda4dd2ebcc117a206976212dd1c5ac938bb08cb6f0fdf4b325c3582b8e3a2"
+                  },
+                  {
+                      "path":  "tools/playground/tl_tests.cpp",
+                      "sha256":  "ddb8e4a24b04058e71160f9d471f52b4f141d2bcec6bc15fc034f20803443040"
+                  },
+                  {
+                      "path":  "tools/ps2test/CMakeLists.txt",
+                      "sha256":  "431e27446979ca753a75b700bab942217f382eb3407687354dd46fbf3e628336"
+                  },
+                  {
+                      "path":  "tools/ps2test/gs.h",
+                      "sha256":  "65a61e79eb333df9f11cd35a0da494d46cfb3a227088ce6cb97961f67f2b8f88"
+                  },
+                  {
+                      "path":  "tools/ps2test/main.cpp",
+                      "sha256":  "f51175c40af45258556e28b3c2ad46e5ccea109f55621d700b327226f37a2479"
+                  },
+                  {
+                      "path":  "tools/ps2test/mem.h",
+                      "sha256":  "92c571c370e75c98b6e8e15067806f048ad8c4f85bc5927a628f5ada357fe6b9"
+                  },
+                  {
+                      "path":  "tools/ps2test/ps2.h",
+                      "sha256":  "4099059e71cd58b5c84895adff2ef79e655918c98fa2181a8052a6df4e23984d"
+                  },
+                  {
+                      "path":  "tools/ps2test/vu/defaultpipe.dsm",
+                      "sha256":  "d20d0a44161677d268a4412cb59c743412b1001f3a10b5e9c8bb966f0d3fc7ff"
+                  },
+                  {
+                      "path":  "tools/ps2test/vu/skinpipe.dsm",
+                      "sha256":  "5e172e7fe43f14d69befc696e62a63c5ca2d158924a45cc80b3b8d9632b8539c"
+                  },
+                  {
+                      "path":  "tools/ska2anm/ska2anm.cpp",
+                      "sha256":  "68b960d2b03c317e8196847ede5185a74beab269e70fe75d5d7467899a2ea7a0"
+                  }
+              ]
+}
