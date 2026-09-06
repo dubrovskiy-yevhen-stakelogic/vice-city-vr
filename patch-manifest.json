@@ -745,15 +745,19 @@
                     },
                     {
                         "path":  "src/vr/OpenXRVR.cpp",
-                        "sha256":  "0e5060313a80edfbf977a99578ac5ddd613920c2a23af433670926af912d9916"
+                        "sha256":  "4fd08be945421a3af484b3b8540a00a73b93873f15fdab3757b6d2296b1c363c"
                     },
                     {
                         "path":  "src/vr/OpenXRWristHud.h",
-                        "sha256":  "237fad9fd6c10f0b13164600ca85dadc4ff6b581a8c5865fc59bd320a56ed29d"
+                        "sha256":  "1f51748fb3726c1a4683786aee494ca0f522ca4760831a69585672d16b155d83"
                     },
                     {
                         "path":  "src/vr/VrCameraHeadScope.h",
                         "sha256":  "4cfc92a2f9b718fe6125b2279b20dc4399757f1329c99aa1b799c847037abaea"
+                    },
+                    {
+                        "path":  "src/vr/VrCarSteering.h",
+                        "sha256":  "9046bfa144dc349e7fc94e022dda471081ed3d8d85a0d40b6310a5cdcb80f42a"
                     },
                     {
                         "path":  "src/vr/VRHandModel.cpp",
@@ -764,8 +768,16 @@
                         "sha256":  "6aaae890533947244b1edca48611665c95d803c680fdb290d949f3e4d4277cc4"
                     },
                     {
+                        "path":  "src/vr/VrMenuInputRouting.h",
+                        "sha256":  "b1ea74fcac041d23ed56e663f24f05f791f2712005631967c24d2240d39ea3c3"
+                    },
+                    {
                         "path":  "src/vr/VrPadBindings.h",
                         "sha256":  "d695562922c3f8a457a3ad501dc7a31938984514e9c0a4e4ffce23760956ca58"
+                    },
+                    {
+                        "path":  "src/vr/VrVehicleViewSettings.h",
+                        "sha256":  "7ce46df01c3e04372738f4cab93af09eba549e07e4d0b65b7c37cf12a9a5d454"
                     },
                     {
                         "path":  "src/vr/WristHudMath.h",
@@ -828,6 +840,14 @@
                         "sha256":  "12408ebd2114c1a170c23bf7c51ecdd9b498981937b58d76a7c23e550da5e479"
                     },
                     {
+                        "path":  "tools/vr/car-steering-test.vcxproj",
+                        "sha256":  "a58087eed50ac33442829151b78a905bf5c83ce75e4f7575a31cf195e3c5749c"
+                    },
+                    {
+                        "path":  "tools/vr/menu-input-routing-test.vcxproj",
+                        "sha256":  "d884be4e5c97238ee6c2bdb383e5194d5892d92af31c8b7d7b2496f862a6039d"
+                    },
+                    {
                         "path":  "tools/vr/menu-navigation-test.cpp",
                         "sha256":  "9ae370854639efd54650e03522c71e325bb193800ffb6721d24ca7ed2645645b"
                     },
@@ -837,19 +857,43 @@
                     },
                     {
                         "path":  "tools/vr/README.md",
-                        "sha256":  "49e96a3486076460aeae151ffa1a5c1a8d46e242a6448073dddacadc4dbb825d"
+                        "sha256":  "696aca59f28b8858443f2e4767f22fe3bed56dba81a3bf03d2b520cf5e1829fa"
                     },
                     {
                         "path":  "tools/vr/tests/camera-head-scope-test.cpp",
                         "sha256":  "73d70595b663e4a3bba908749973a3b8873b4a59e1bc4b0312ed33e3fed77d11"
                     },
                     {
+                        "path":  "tools/vr/tests/car-steering-test.cpp",
+                        "sha256":  "9455578e4761578b2f5be022d5a2c0b5fd1a4220faa37a7e9c9f799955c4fcd3"
+                    },
+                    {
+                        "path":  "tools/vr/tests/menu-input-routing-test.cpp",
+                        "sha256":  "e2799662aa5dcd62c63072de68f578caac49921f619699f60a24642a6d7332df"
+                    },
+                    {
                         "path":  "tools/vr/tests/pad-bindings-test.cpp",
                         "sha256":  "4c32e04a94b715ab17a5e63ab540b7c90a667275b9d0e95a352988c7278cf915"
                     },
                     {
+                        "path":  "tools/vr/tests/run-wrist-hud-lifecycle.py",
+                        "sha256":  "f45ac49596808fdbf2c605927fcaf46de34a67b659370b0b68196dcfb24e46b8"
+                    },
+                    {
+                        "path":  "tools/vr/tests/vehicle-view-settings-test.cpp",
+                        "sha256":  "49be33b58df4a387c1fb991292f0d44422a3a9030a75e938732a334cdbb10350"
+                    },
+                    {
+                        "path":  "tools/vr/tests/wrist-hud-lifecycle-test.cpp",
+                        "sha256":  "5dd29c4b72b8d6d800e387e712a0f3fa0c1d01f390c9e9b7d12494d57aa4d786"
+                    },
+                    {
                         "path":  "tools/vr/tests/wrist-hud-test.cpp",
                         "sha256":  "32890e29d4177a8100dae3c7892494af55a9a7f6a37661e0b8a2b417c5a7554c"
+                    },
+                    {
+                        "path":  "tools/vr/vehicle-view-settings-test.vcxproj",
+                        "sha256":  "b7167d45a3935b9c77e3b25bc62394efabd81b0e6492891a8aad799e9bc4e4ee"
                     },
                     {
                         "path":  "tools/vr/wrist-hud-test.vcxproj",

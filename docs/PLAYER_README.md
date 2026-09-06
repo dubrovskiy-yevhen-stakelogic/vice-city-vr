@@ -7,6 +7,18 @@ PC Grand Theft Auto: Vice City (2003), not the Definitive Edition.
 
 ## Install
 
+### Updating an existing 0.5.5 installation
+
+This refreshed archive fixes wheel-grip acquisition and steering, the on-foot
+wrist HUD and square minimap proportions, vehicle-camera seat offsets, and
+controller input leaking from VR Settings into the game menu. Back up the old
+`reVC.exe`, then copy the updated package into the same game folder. Existing
+settings and saves are retained; rerunning setup is unnecessary if dependencies
+are already installed. For a wheel grip, release and squeeze again near its
+neutral 9/3-o'clock position, as on Quest.
+
+### First installation
+
 1. Make a separate copy of your legally owned original Vice City installation.
    Keep your original game and saves backed up.
 2. Extract the ZIP completely. Copy the **contents** of its

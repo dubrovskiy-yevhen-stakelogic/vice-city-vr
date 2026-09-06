@@ -22,7 +22,10 @@
 #include "DLAA.h"
 #include "FSR2.h"
 #include "MenuNavigation.h"
+#include "VrMenuInputRouting.h"
 #include "VrPadBindings.h"
+#include "VrCarSteering.h"
+#include "VrVehicleViewSettings.h"
 #include "WristHudSettings.h"
 #include "VrRagdoll.h"
 #include "Camera.h"
@@ -769,7 +772,7 @@ bool gTouchWeatherShortcutDown;
 bool gTouchRecenterShortcutDown;
 bool gTouchSpsShortcutDown;
 bool gTouchVrsShortcutDown;
-bool gTouchVrMenuShortcutDown;
+VrMenuInputRouting gVrMenuInputRouting;
 bool gRecenterRequested;
 bool gVehicleViewStateValid;
 bool gVehicleViewWasActive;
@@ -1287,11 +1290,7 @@ float gMotionVehicleSteering;
 float gMotionVehiclePhysicalAngle;
 bool gMotionSteeringReferenceValid;
 float gMotionSteeringReferenceHeading;
-// Two real hands retain the proven v0.4.1 labelled left-to-right chord. Car
-// one-hand steering stores a tangent coordinate. Bike one-hand steering freezes
-// the controller and mirrored chord in OpenXR tracking space for the duration of
-// the grab, so vehicle lean and handlebar animation cannot feed back into input.
-// This shared state only owns transition continuity and hard-stop anti-windup.
+// Bike grips retain their tracking-space reference independently of car steering.
 struct ImmersiveSteeringChordState
 {
 	CVehicle *vehicle;
@@ -1300,18 +1299,17 @@ struct ImmersiveSteeringChordState
 	bool referenceActive;
 	bool rebaseOnNextValid;
 	float referenceAngle;
-	float oneHandReferenceCoordinate;
 	float continuousAngle;
 	float lastDelta;
 	uint32 pointValidMask;
 	uint32 captureCount;
 	ImmersiveSteeringChordState() : vehicle(nil), realHandMask(0),
 		valid(false), referenceActive(false), rebaseOnNextValid(false),
-		referenceAngle(0.0f), oneHandReferenceCoordinate(0.0f),
+		referenceAngle(0.0f),
 		continuousAngle(0.0f),
 		lastDelta(0.0f), pointValidMask(0), captureCount(0) {}
 };
-ImmersiveSteeringChordState gCarSteeringChordState;
+VrCarSteering::State gCarSteeringChordState;
 ImmersiveSteeringChordState gBikeSteeringChordState;
 struct BikeOneHandSteeringState
 {
@@ -2549,7 +2547,8 @@ void LoadVrSettings()
 		GetPrivateProfileIntA("VR", "BikeHandleHighlights", 0, path) != 0;
 	gCarHandleHighlightsEnabled = GetPrivateProfileIntA("VR", "CarHandleHighlights", 0, path) != 0;
 	gBoatHandleHighlightsEnabled = GetPrivateProfileIntA("VR", "BoatHandleHighlights", 0, path) != 0;
-	gWheelHandPullBackMm = Min(Max(GetPrivateProfileIntA("VR", "WheelHandPullBackMm", 0, path), -80), 80);
+	gWheelHandPullBackMm = VrVehicleViewSettings::ReadWheelHandPullBack(
+		GetPrivateProfileIntA, path);
 	// This is the master switch across both model sets. Per-model exceptions are
 	// namespaced below, but a global HIDE must keep every virtual rim hidden.
 	gImmersiveCarWheelVisible =
@@ -2595,10 +2594,11 @@ void LoadVrSettings()
 		gVehicleThirdPerson[category] = GetPrivateProfileIntA("VR", key,
 			GetPrivateProfileIntA("VR", "VehicleThirdPerson", 0, path), path) != 0;
 		sprintf(key, "Default%sSeatHeightCm", gVehicleCategorySettingPrefixes[category]);
-		gDefaultSeatHeightCm[category] = Min(Max(GetPrivateProfileIntA("VR", key,
-			GetPrivateProfileIntA("VR", "DrivingYOffsetCm", 15, path), path), -100), 150);
+		gDefaultSeatHeightCm[category] = VrVehicleViewSettings::ReadDefaultSeatHeight(
+			GetPrivateProfileIntA, key, path);
 		sprintf(key, "Default%sSeatDistanceCm", gVehicleCategorySettingPrefixes[category]);
-		gDefaultSeatDistanceCm[category] = Min(Max(GetPrivateProfileIntA("VR", key, 0, path), -100), 100);
+		gDefaultSeatDistanceCm[category] = VrVehicleViewSettings::ReadDefaultSeatDistance(
+			GetPrivateProfileIntA, key, path);
 	}
 	const int defaultPedTrafficPercent = Min(Max(
 		(int)(CIniFile::PedNumberMultiplier*100.0f+0.5f), 50), 300);
@@ -3353,7 +3353,7 @@ void ResetImmersiveCarInteraction()
 	gImmersiveCarDesiredAngle = 0.0f;
 	gImmersiveCarSteeringOverflow = 0.0f;
 	gCarWheelUnavailableMask = 0;
-	gCarSteeringChordState = ImmersiveSteeringChordState();
+	gCarSteeringChordState = VrCarSteering::State();
 	gImmersiveCarHornPressed = false;
 }
 
@@ -3363,7 +3363,7 @@ void InvalidateImmersiveTrackingReferences()
 	// pose. Keep the currently applied wheel/handle angle and grab ownership, but
 	// force the next held frame to latch a fresh pair in the new space. A full
 	// interaction reset here would visibly snap both vehicles back to neutral.
-	gCarSteeringChordState = ImmersiveSteeringChordState();
+	gCarSteeringChordState = VrCarSteering::State();
 	gBikeSteeringChordState = ImmersiveSteeringChordState();
 	gBikeOneHandSteeringState = BikeOneHandSteeringState();
 	// A held two-hand bike normally uses the literal absolute v0.4.1 chord.
@@ -9679,20 +9679,6 @@ float WrapCarWheelAngle(float angle)
 	return angle;
 }
 
-float UnwrapCarWheelAngle(float angle, float reference)
-{
-	const float pi = 3.14159265358979323846f;
-	while(angle-reference > pi) angle -= 2.0f*pi;
-	while(angle-reference < -pi) angle += 2.0f*pi;
-	return angle;
-}
-
-float PlanarCarWheelAngle(const CVector &vector,
-	const CVector &right, const CVector &up)
-{
-	return atan2f(DotProduct(vector, up), DotProduct(vector, right));
-}
-
 float WrapBikeSteeringAngle(float angle)
 {
 	return WrapCarWheelAngle(angle);
@@ -9832,24 +9818,6 @@ bool SolveBikeOneHandSteering(CBike *bike, uint32 realHandMask,
 	return _finite(*desiredAngle) != 0;
 }
 
-float OneHandTangentialSteeringAngle(float tangentialTravel,
-	float radius, float maxAngle)
-{
-	if(radius <= 0.001f)
-		return 0.0f;
-	const float normalizedTravel = tangentialTravel/radius;
-	const float magnitude = Abs(normalizedTravel);
-	const float circularLimit = sinf(maxAngle);
-	// Inside the useful range this is exactly the inverse of the tangential
-	// travel of a point moving around a circle. Beyond the physical stop, keep
-	// the scalar unbounded so anti-windup can rebase at the current hand position
-	// and the first movement back responds immediately.
-	const float angle = magnitude <= circularLimit ?
-		asinf(Min(magnitude, 1.0f)) :
-		maxAngle+(magnitude-circularLimit);
-	return normalizedTravel < 0.0f ? -angle : angle;
-}
-
 bool GetTrackedHornHandPosition(int hand, CVector *position)
 {
 	if(!position || hand < 0 || hand >= EYE_COUNT ||
@@ -9935,15 +9903,13 @@ uint32 UpdateImmersiveCarInput(const float *grips, uint32 blockedHands)
 		return 0;
 	}
 	RestrictImmersiveVehicleWeaponsToSidearms(player);
-	CMatrix neutralAnchors[EYE_COUNT];
 	CMatrix anchors[EYE_COUNT];
 	CVector handPositions[EYE_COUNT];
 	bool anchorValid[EYE_COUNT] = {};
 	gCarWheelUnavailableMask = 0;
 	for(int hand = 0; hand < EYE_COUNT; hand++){
 		anchorValid[hand] =
-			BuildCarWheelMatrixInternal(hand, &neutralAnchors[hand], false) &&
-			BuildCarWheelMatrixInternal(hand, &anchors[hand], true);
+			BuildCarWheelMatrixInternal(hand, &anchors[hand], false);
 		if(gTrackedHandPoseValid[hand])
 			handPositions[hand] = gBaseCamera.GetPosition()+
 				ToGameVector(gTrackedHandPose[hand].position);
@@ -9961,22 +9927,15 @@ uint32 UpdateImmersiveCarInput(const float *grips, uint32 blockedHands)
 			IsHandBusyWithReload(hand);
 		if(unavailable)
 			gCarWheelUnavailableMask |= 1u << hand;
-		if(gCarWheelGrabbed[hand] &&
-		   (unavailable || grips[hand] <= 0.30f)){
-			gCarWheelGrabbed[hand] = false;
-		}
-		if(!gCarWheelGrabbed[hand] && !unavailable &&
-		   grips[hand] >= 0.65f &&
-		   gCarWheelDistance[hand] <= 0.23f){
-			gCarWheelGrabbed[hand] = true;
+		const bool wasGrabbed = gCarWheelGrabbed[hand];
+		gCarWheelGrabbed[hand] = VrCarSteering::UpdateGrip(wasGrabbed,
+			gCarWheelGripDown[hand], grips[hand], unavailable,
+			gCarWheelDistance[hand]);
+		if(gCarWheelGrabbed[hand] && !wasGrabbed){
 			debug("[OpenXR] %s car wheel grip grabbed on %s\n",
 				hand == 0 ? "Left" : "Right",
 				GetActiveVrVehicleName());
 		}
-		if(grips[hand] <= 0.30f)
-			gCarWheelGripDown[hand] = false;
-		else if(grips[hand] >= 0.65f)
-			gCarWheelGripDown[hand] = true;
 	}
 
 	const bool left = gCarWheelGrabbed[0] && anchorValid[0];
@@ -9990,162 +9949,22 @@ uint32 UpdateImmersiveCarInput(const float *grips, uint32 blockedHands)
 	const CVector axis = wheelPose.normal;
 	const uint32 realHandMask =
 		(left ? 1u : 0u) | (right ? 2u : 0u);
-	const float maxSteering = DEGTORAD(80.0f);
-	gImmersiveCarDesiredAngle = 0.0f;
-	gImmersiveCarSteeringOverflow = 0.0f;
-	float steeringAngle = 0.0f;
-	if(realHandMask != 0){
-		if(gCarSteeringChordState.valid &&
-		   gCarSteeringChordState.vehicle != car){
-			gImmersiveCarPhysicalAngle = 0.0f;
-			gCarSteeringChordState = ImmersiveSteeringChordState();
-		}
-
-		if(realHandMask != 3u){
-			// A real wheel constrains one held hand to a single tangent. Measure only
-			// that coordinate in the current vehicle frame; reaching inward/outward or
-			// toward the dashboard must never change steering sensitivity or sign.
-			const int hand = realHandMask == 1u ? 0 : 1;
-			CVector radial = neutralAnchors[hand].GetPosition()-center;
-			radial -= axis*DotProduct(radial, axis);
-			const float radius = radial.Magnitude();
-			CVector tangent = CrossProduct(radial, axis);
-			const bool pointValid = radius >= 0.08f &&
-				tangent.MagnitudeSqr() > 0.0001f &&
-				_finite(handPositions[hand].x) &&
-				_finite(handPositions[hand].y) &&
-				_finite(handPositions[hand].z);
-			if(pointValid){
-				tangent.Normalise();
-				const float coordinate = DotProduct(
-					handPositions[hand]-neutralAnchors[hand].GetPosition(),
-					tangent);
-				const bool ownershipChanged =
-					!gCarSteeringChordState.valid ||
-					gCarSteeringChordState.vehicle != car ||
-					gCarSteeringChordState.realHandMask != realHandMask;
-				if(ownershipChanged){
-					const uint32 nextCapture =
-						gCarSteeringChordState.captureCount+1;
-					gCarSteeringChordState = ImmersiveSteeringChordState();
-					gCarSteeringChordState.vehicle = car;
-					gCarSteeringChordState.realHandMask = realHandMask;
-					gCarSteeringChordState.referenceActive = true;
-					gCarSteeringChordState.referenceAngle =
-						gImmersiveCarPhysicalAngle;
-					gCarSteeringChordState.oneHandReferenceCoordinate =
-						coordinate;
-					gCarSteeringChordState.continuousAngle =
-						gImmersiveCarPhysicalAngle;
-					gCarSteeringChordState.captureCount = nextCapture;
-					gCarSteeringChordState.valid = true;
-				}
-				const float desiredAngle =
-					gCarSteeringChordState.referenceAngle+
-					OneHandTangentialSteeringAngle(coordinate, radius,
-						maxSteering)-
-					OneHandTangentialSteeringAngle(
-						gCarSteeringChordState.oneHandReferenceCoordinate,
-						radius, maxSteering);
-				gImmersiveCarDesiredAngle = desiredAngle;
-				const bool discontinuity = !_finite(desiredAngle) ||
-					Abs(desiredAngle-gImmersiveCarPhysicalAngle) >
-						DEGTORAD(45.0f);
-				steeringAngle = discontinuity ?
-					gImmersiveCarPhysicalAngle :
-					clamp(desiredAngle, -maxSteering, maxSteering);
-				gImmersiveCarSteeringOverflow =
-					desiredAngle-steeringAngle;
-				if(discontinuity || steeringAngle != desiredAngle){
-					// Rebase at the physical stop itself. Moving farther outside the
-					// rim cannot accumulate hidden travel; the first millimetre back
-					// changes the applied angle immediately.
-					gCarSteeringChordState.referenceAngle = steeringAngle;
-					gCarSteeringChordState.oneHandReferenceCoordinate =
-						coordinate;
-					if(discontinuity)
-						gCarSteeringChordState.captureCount++;
-				}
-				gCarSteeringChordState.lastDelta = steeringAngle-
-					gImmersiveCarPhysicalAngle;
-				gCarSteeringChordState.continuousAngle = steeringAngle;
-				gCarSteeringChordState.pointValidMask = realHandMask;
-			}else{
-				steeringAngle = gImmersiveCarPhysicalAngle;
-				const uint32 captureCount =
-					gCarSteeringChordState.captureCount;
-				gCarSteeringChordState = ImmersiveSteeringChordState();
-				gCarSteeringChordState.captureCount = captureCount;
-				gCarSteeringChordState.rebaseOnNextValid = true;
-			}
-		}else{
-			// Two real hands are deliberately the accepted v0.4.1 labelled chord
-			// path. Do not route them through the one-hand tangent constraint.
-			const CVector chord = handPositions[1]-handPositions[0];
-			const float chordPlaneLengthSqr =
-				sq(DotProduct(chord, wheelPose.right))+
-				sq(DotProduct(chord, wheelPose.up));
-			if(chordPlaneLengthSqr > 0.0001f){
-				const float chordAngle = PlanarCarWheelAngle(chord,
-					wheelPose.right, wheelPose.up);
-			const bool ownershipChanged =
-				!gCarSteeringChordState.valid ||
-				gCarSteeringChordState.vehicle != car ||
-				gCarSteeringChordState.realHandMask != realHandMask;
-			if(ownershipChanged){
-				const uint32 nextCapture =
-					gCarSteeringChordState.captureCount+1;
-				gCarSteeringChordState = ImmersiveSteeringChordState();
-				gCarSteeringChordState.vehicle = car;
-				gCarSteeringChordState.realHandMask = realHandMask;
-				gCarSteeringChordState.referenceAngle = WrapCarWheelAngle(
-					chordAngle-gImmersiveCarPhysicalAngle);
-				gCarSteeringChordState.continuousAngle =
-					gImmersiveCarPhysicalAngle;
-				gCarSteeringChordState.captureCount = nextCapture;
-				gCarSteeringChordState.valid = true;
-			}
-			steeringAngle = WrapCarWheelAngle(chordAngle-
-				gCarSteeringChordState.referenceAngle);
-			steeringAngle = UnwrapCarWheelAngle(steeringAngle,
-				gCarSteeringChordState.continuousAngle);
-			const float desiredAngle = steeringAngle;
-			gImmersiveCarDesiredAngle = desiredAngle;
-			// Keep the stored chord state on the physical stop itself. Without this
-			// anti-windup, invisible angle accumulated outside +/-80 degrees and had
-			// to be unwound before the car reacted in the opposite direction.
-			const bool discontinuity = Abs(WrapCarWheelAngle(desiredAngle-
-				gImmersiveCarPhysicalAngle)) > DEGTORAD(45.0f);
-			steeringAngle = discontinuity ? gImmersiveCarPhysicalAngle :
-				clamp(desiredAngle, -maxSteering, maxSteering);
-			gImmersiveCarSteeringOverflow = desiredAngle-steeringAngle;
-			if(discontinuity || steeringAngle != desiredAngle){
-				gCarSteeringChordState.referenceAngle = WrapCarWheelAngle(
-					chordAngle-steeringAngle);
-				if(discontinuity)
-					gCarSteeringChordState.captureCount++;
-			}
-			gCarSteeringChordState.lastDelta = steeringAngle-
-				gImmersiveCarPhysicalAngle;
-			gCarSteeringChordState.continuousAngle = steeringAngle;
-			gCarSteeringChordState.pointValidMask = realHandMask;
-			}else{
-			// A nearly collapsed chord has no reliable direction. Hold the last angle
-			// and invalidate only its reference, so the first valid point re-latches
-			// instead of emerging on the opposite side at full lock. This 1 cm chord
-			// guard is far smaller than the removed 5 cm per-hand dead region.
-			steeringAngle = gImmersiveCarPhysicalAngle;
-			const uint32 captureCount =
-				gCarSteeringChordState.captureCount;
-			gCarSteeringChordState = ImmersiveSteeringChordState();
-			gCarSteeringChordState.captureCount = captureCount;
-			gCarSteeringChordState.rebaseOnNextValid = true;
-			}
-		}
-	}else{
-		gCarSteeringChordState = ImmersiveSteeringChordState();
-		gImmersiveCarPhysicalAngle = 0.0f;
-	}
+	CVector measured(0.0f, 0.0f, 0.0f);
+	if(realHandMask == 3u)
+		measured = handPositions[1]-handPositions[0];
+	else if(realHandMask != 0)
+		measured = handPositions[realHandMask == 1u ? 0 : 1]-center;
+	const bool pointValid = _finite(measured.x) &&
+		_finite(measured.y) && _finite(measured.z);
+	const VrCarSteering::Result wheel = VrCarSteering::Update(
+		gCarSteeringChordState, car, realHandMask,
+		DotProduct(measured, wheelPose.right),
+		DotProduct(measured, wheelPose.up), pointValid,
+		gImmersiveCarPhysicalAngle);
+	const float steeringAngle = wheel.angle;
+	const float maxSteering = VrCarSteering::MaxAngle;
+	gImmersiveCarDesiredAngle = wheel.desiredAngle;
+	gImmersiveCarSteeringOverflow = wheel.overflow;
 	// Reach full vehicle lock before fixed 9-and-3 grips can cross sides. This
 	// keeps hand identity readable without reducing the car's steering range.
 	gImmersiveCarPhysicalAngle =
@@ -12243,7 +12062,7 @@ bool DrawEyeFxaa(EyeBuffer &eye, int eyeIndex)
 
 #include "OpenXRWristHud.h"
 
-bool UpdateHudSwapchain(RwCamera *camera)
+bool UpdateHudSwapchain(RwCamera *camera, const WristHudFrame &wristFrame)
 {
 	gWristHud.routingMask = gWristHudLayerMask = 0;
 	if((!gGameplayHudVisible && !IsTrackedScopeActive()) ||
@@ -12252,11 +12071,13 @@ bool UpdateHudSwapchain(RwCamera *camera)
 	RwRaster *oldColor = RwCameraGetRaster(camera);
 	RwRaster *oldDepth = RwCameraGetZRaster(camera);
 	const int oldWidth = RsGlobal.width, oldHeight = RsGlobal.height;
+	const float oldAspectRatio = CDraw::GetAspectRatio();
 	RwCameraSetRaster(camera, gHudColor);
 	RwCameraSetZRaster(camera, gHudDepth);
 	RsGlobal.width = VR_HUD_WIDTH;
 	RsGlobal.height = VR_HUD_HEIGHT;
-	PrepareWristHud();
+	CDraw::SetAspectRatio((float)VR_HUD_WIDTH/(float)VR_HUD_HEIGHT);
+	PrepareWristHud(wristFrame);
 	RwRGBA transparent = { 0, 0, 0, 0 };
 	RwCameraClear(camera, &transparent, rwCAMERACLEARIMAGE | rwCAMERACLEARZ);
 	bool rendered = RwCameraBeginUpdate(camera) != nil;
@@ -12274,6 +12095,7 @@ bool UpdateHudSwapchain(RwCamera *camera)
 	RwCameraSetZRaster(camera, oldDepth);
 	RsGlobal.width = oldWidth;
 	RsGlobal.height = oldHeight;
+	CDraw::SetAspectRatio(oldAspectRatio);
 	return copied;
 }
 
@@ -15963,6 +15785,12 @@ bool ApplyTouchInput(CControllerState *state)
 		ResetImmersiveDrivingInteraction();
 		return false;
 	}
+	// CapturePad/XInput have already contributed to this state. Returning true
+	// does not consume it: CPad merges it after this function returns. Only an
+	// active, synchronized Touch session can take ownership from the legacy pad.
+	gVrMenuInputRouting.BeginLegacyFrame(*state,
+		gVrMenuVisible || gCheatMenuVisible ||
+		(gVrAboutVisible && gVrAboutWasRendered) || gVrAboutReleaseGate);
 	const float leftGrip=ReadFloat(gActions.squeeze,0), rightGrip=ReadFloat(gActions.squeeze,1);
 	const float leftTrigger=ReadFloat(gActions.trigger,0), rightTrigger=ReadFloat(gActions.trigger,1);
 	gTrackedHandGrip[0]=leftGrip; gTrackedHandGrip[1]=rightGrip;
@@ -15985,6 +15813,9 @@ bool ApplyTouchInput(CControllerState *state)
 	const bool leftStickClick=ReadBool(gActions.stickClick,0);
 	const bool rightStickClick=ReadBool(gActions.stickClick,1);
 	const bool menu=ReadBool(gActions.menu);
+	gVrMenuInputRouting.BeginTouchFrame(menu, VrMenuInputRouting::Controls(
+		menu, a, b, x, y, leftStickClick, rightStickClick,
+		leftGrip, rightGrip, leftTrigger, rightTrigger));
 	const bool aboutInputDown = a || b || x || y || menu ||
 		leftStickClick || rightStickClick ||
 		leftGrip >= 0.55f || rightGrip >= 0.55f ||
@@ -16023,6 +15854,20 @@ bool ApplyTouchInput(CControllerState *state)
 		gVrMenuIncreaseDown = rightTrigger >= 0.55f;
 		gVrMenuDecreaseRepeatAt = gVrMenuIncreaseRepeatAt = 0;
 		gVrMenuDecreaseHoldStartedAt = gVrMenuIncreaseHoldStartedAt = 0;
+		gVrMenuInputRouting.Consume(*state);
+		return true;
+	}
+	if(!gVrMenuVisible && !gCheatMenuVisible &&
+	   gVrMenuInputRouting.WaitingForRelease()){
+		// Keep a closing button or opening chord out of gameplay until released.
+		// Menu navigation still runs normally while either menu remains visible.
+		for(int hand = 0; hand < EYE_COUNT; hand++){
+			gTrackedWeaponTriggerPressed[hand] = false;
+			gTrackedWeaponTriggerJustPressed[hand] = false;
+			gTrackedWeaponTriggerJustReleased[hand] = false;
+			gTrackedThrowablePreviewActive[hand] = false;
+		}
+		gVrMenuInputRouting.Consume(*state);
 		return true;
 	}
 	// Physical grabs win over a plain two-grip squeeze, so two holsters can be
@@ -16136,7 +15981,8 @@ bool ApplyTouchInput(CControllerState *state)
 	const bool legacyVrMenuShortcut=bothGrips && menu;
 	const bool vrMenuShortcut=legacyVrMenuShortcut ||
 		alternateVrMenuShortcut;
-	const bool vrMenuToggled=vrMenuShortcut && !gTouchVrMenuShortcutDown;
+	const bool vrMenuToggled=gVrMenuInputRouting.ToggleRequested(
+		legacyVrMenuShortcut, alternateVrMenuShortcut, menu, x, leftStickClick);
 	if(vrMenuToggled){
 		gVrMenuVisible=!gVrMenuVisible;
 		gVrGraphicsMenuVisible=false;
@@ -16183,7 +16029,6 @@ bool ApplyTouchInput(CControllerState *state)
 		gVrMenuDecreaseHoldStartedAt=gVrMenuIncreaseHoldStartedAt=0;
 		debug("[OpenXR] VR settings: %s\n",gVrMenuVisible?"open":"closed");
 	}
-	gTouchVrMenuShortcutDown=vrMenuShortcut;
 	const bool cheatMenuShortcut=modifier && b;
 	const bool cheatMenuToggled=cheatMenuShortcut && !gTouchWeatherShortcutDown;
 	const bool neuralComparisonToggled = cheatMenuToggled &&
@@ -16240,6 +16085,7 @@ bool ApplyTouchInput(CControllerState *state)
 		HandleVrMenuInput(sticks[0], leftTrigger>=0.55f,
 			rightTrigger>=0.55f, a || rightStickClick,
 			b || leftStickClick);
+		gVrMenuInputRouting.Consume(*state);
 		return true;
 	}
 	if(gCheatMenuVisible){
@@ -16251,10 +16097,13 @@ bool ApplyTouchInput(CControllerState *state)
 		}
 		HandleCheatMenuInput(sticks[0], a || rightStickClick,
 			b || leftStickClick);
+		gVrMenuInputRouting.Consume(*state);
 		return true;
 	}
-	if(vrMenuToggled || cheatMenuToggled || neuralComparisonToggled)
+	if(vrMenuToggled || cheatMenuToggled || neuralComparisonToggled){
+		gVrMenuInputRouting.Consume(*state);
 		return true;
+	}
 	const bool perfShortcut=modifier && y;
 	const bool debugShortcut=modifier && a;
 	const bool spsShortcut=modifier && leftStickClick && leftTrigger>=0.75f;
@@ -16308,7 +16157,7 @@ bool ApplyTouchInput(CControllerState *state)
 	UpdateCutsceneCameraInput(leftStickClick, rightStickClick);
 	if(IsStereoCutsceneActive() && !gVrMenuVisible && !gCheatMenuVisible){
 		MergeButton(state->Cross, a);
-		MergeButton(state->Start, menu);
+		MergeButton(state->Start, gVrMenuInputRouting.AllowTouchPause());
 		return true;
 	}
 	const float headSteeringAxis =
@@ -16540,7 +16389,7 @@ bool ApplyTouchInput(CControllerState *state)
 		state->RightShock = Max(state->RightShock, (int16)buttons[VrPadBindings::R3]);
 	}
 	if(!vrMenuShortcut)
-		MergeButton(state->Start,menu);
+		MergeButton(state->Start,gVrMenuInputRouting.AllowTouchPause());
 	return true;
 }
 
@@ -18927,6 +18776,10 @@ bool SubmitStereoFrame(RwCamera *camera)
 	// acquired world swapchain. It never enters temporal history.
 	RenderTrackedForeground(camera);
 #endif
+	// Hand helpers require the prepared camera; retain only this frame's anchors
+	// for the HUD pass, which runs after the world camera has been restored.
+	WristHudFrame wristFrame;
+	CaptureWristHudFrame(&wristFrame);
 	RestoreCamera(camera);
 #ifdef RW_D3D12
 	if(dlaaFrame && !Dlaa::WasLastEvaluationSuccessful()){
@@ -18942,7 +18795,7 @@ bool SubmitStereoFrame(RwCamera *camera)
 			Fsr2::GetStatus());
 	}
 #endif
-	const bool showHud=UpdateHudSwapchain(camera);
+	const bool showHud=UpdateHudSwapchain(camera, wristFrame);
 	const bool showDebug=UpdateDebugSwapchain();
 	const bool showVrMenu=UpdateVrMenuSwapchain();
 	if(gVrLoggedRenderableFrames < 10)

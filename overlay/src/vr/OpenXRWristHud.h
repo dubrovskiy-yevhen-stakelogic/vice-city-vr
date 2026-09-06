@@ -4,6 +4,39 @@
 
 #include "WristHudMath.h"
 
+// Legacy flat-screen radar/font stretching is not a wrist-panel calibration.
+// Use the same square-pixel layout for atlas bounds and atlas contents, then
+// return the player's flat HUD settings unchanged.
+struct WristHudLayoutScope
+{
+#ifdef FIX_RADAR
+	bool oldFixRadar;
+#endif
+#ifdef PROPER_SCALING
+	bool oldProperScaling;
+#endif
+	WristHudLayoutScope()
+	{
+#ifdef FIX_RADAR
+		oldFixRadar = CDraw::ms_bFixRadar;
+		CDraw::ms_bFixRadar = true;
+#endif
+#ifdef PROPER_SCALING
+		oldProperScaling = CDraw::ms_bProperScaling;
+		CDraw::ms_bProperScaling = true;
+#endif
+	}
+	~WristHudLayoutScope()
+	{
+#ifdef FIX_RADAR
+		CDraw::ms_bFixRadar = oldFixRadar;
+#endif
+#ifdef PROPER_SCALING
+		CDraw::ms_bProperScaling = oldProperScaling;
+#endif
+	}
+};
+
 bool BuildWristVehicleAnchor(CMatrix *matrix)
 {
 	CVehicle *vehicle = FindPlayerVehicle();
@@ -30,38 +63,86 @@ bool BuildWristVehicleAnchor(CMatrix *matrix)
 	return true;
 }
 
-bool BuildWristHudLayer(int panel, XrCompositionLayerQuad *layer, bool *visible)
+struct WristHudAnchor
+{
+	CVector position, right, up, forward;
+};
+
+struct WristHudFrame
+{
+	WristHudAnchor anchors[EYE_COUNT];
+	unsigned int anchorMask = 0;
+	int context = WristHudSettings::FOOT;
+};
+
+void CaptureWristHudAnchor(WristHudAnchor *anchor, const CMatrix &matrix)
+{
+	anchor->position = ToTrackingPosition(matrix.GetPosition());
+	anchor->right = ToTrackingVector(matrix.GetRight());
+	anchor->up = ToTrackingVector(matrix.GetUp());
+	anchor->forward = ToTrackingVector(matrix.GetForward());
+}
+
+void CaptureWristHudFrame(WristHudFrame *frame)
+{
+	frame->anchorMask = 0;
+	frame->context = WristHudSettings::FOOT;
+	if(!gFramePrepared || !gGameplayHudVisible || IsTrackedScopeActive() ||
+	   !ShouldRouteGameplayHudToVr() || gWristHudFailed) return;
+	unsigned int requestedHands = 0;
+	for(int panel = 0; panel < WristHudSettings::PANEL_COUNT; panel++){
+		const int hand = gWristHud.hand[panel];
+		if(gWristHud.enabled[panel] && hand >= 0 && hand < EYE_COUNT)
+			requestedHands |= 1u << hand;
+	}
+	if(!requestedHands) return;
+	CVehicle *vehicle = FindPlayerVehicle();
+	if(vehicle){
+		CMatrix anchor;
+		if(!BuildWristVehicleAnchor(&anchor)) return;
+		frame->context = vehicle->IsBike() ? WristHudSettings::BIKE : WristHudSettings::CAR;
+		CaptureWristHudAnchor(&frame->anchors[0], anchor);
+		frame->anchorMask = 1;
+	}else{
+		for(int hand = 0; hand < EYE_COUNT; hand++){
+			if(!(requestedHands & (1u << hand))) continue;
+			CMatrix anchor;
+			if(!GetTrackedVisualHandMatrix(hand, &anchor, nil, nil)) continue;
+			CaptureWristHudAnchor(&frame->anchors[hand], anchor);
+			frame->anchorMask |= 1u << hand;
+		}
+	}
+}
+
+bool BuildWristHudLayer(const WristHudFrame &frame, int panel,
+	XrCompositionLayerQuad *layer, bool *visible)
 {
 	*visible = true;
-	const bool vehicle = FindPlayerVehicle() != nil;
-	if(vehicle && (!gWristHud.inVehicle || !IsImmersiveDrivingActive())) return false;
+	const bool vehicle = frame.context != WristHudSettings::FOOT;
 	const int hand = gWristHud.hand[panel];
-	const int context = vehicle ? (FindPlayerVehicle()->IsBike() ? WristHudSettings::BIKE :
-		WristHudSettings::CAR) : WristHudSettings::FOOT;
-	const int *placement = gWristHud.placement[panel][context][gWristHud.underside[panel] ? 1 : 0];
-	CMatrix anchor;
+	const int index = vehicle ? 0 : hand;
+	if(index < 0 || index >= EYE_COUNT || !(frame.anchorMask & (1u << index))) return false;
+	const int *placement = gWristHud.placement[panel][frame.context][gWristHud.underside[panel] ? 1 : 0];
+	const WristHudAnchor &anchor = frame.anchors[index];
 	CVector centre, right, up, normal;
 	if(vehicle){
-		if(!BuildWristVehicleAnchor(&anchor)) return false;
-		right = ToTrackingVector(anchor.GetRight());
-		up = ToTrackingVector(anchor.GetUp());
+		right = anchor.right;
+		up = anchor.up;
 		normal = CrossProduct(right, up);
-		const CVector forward = ToTrackingVector(anchor.GetForward());
-		centre = ToTrackingPosition(anchor.GetPosition())+
-			forward*(placement[WristHudSettings::ALONG]*0.001f)+
+		centre = anchor.position+
+			anchor.forward*(placement[WristHudSettings::ALONG]*0.001f)+
 			right*(placement[WristHudSettings::ACROSS]*0.001f)+
 			up*(placement[WristHudSettings::LIFT]*0.001f);
 	}else{
-		if(!GetTrackedVisualHandMatrix(hand, &anchor, nil, nil)) return false;
 		const float sign = hand ? -1.0f : 1.0f;
 		const float face = gWristHud.underside[panel] ? -1.0f : 1.0f;
-		const CVector side = ToTrackingVector(anchor.GetRight())*sign;
-		const CVector palm = ToTrackingVector(anchor.GetUp())*sign;
-		const CVector backward = ToTrackingVector(anchor.GetForward())*-1.0f;
+		const CVector side = anchor.right*sign;
+		const CVector palm = anchor.up*sign;
+		const CVector backward = anchor.forward*-1.0f;
 		right = side*face;
 		up = backward*-1.0f;
 		normal = palm*face;
-		centre = ToTrackingPosition(anchor.GetPosition())+
+		centre = anchor.position+
 			backward*(0.07f+placement[WristHudSettings::ALONG]*0.001f)+
 			palm*face*(0.035f+placement[WristHudSettings::LIFT]*0.001f)+
 			right*(placement[WristHudSettings::ACROSS]*0.001f);
@@ -100,15 +181,18 @@ bool BuildWristHudLayer(int panel, XrCompositionLayerQuad *layer, bool *visible)
 	layer->pose.orientation = WristQuaternion(right, up);
 	static const float metres[] = {0.115f,0.130f,0.055f,0.070f};
 	layer->size.width = metres[panel]*placement[WristHudSettings::SIZE]*0.01f;
-	layer->size.height = layer->size.width*height/width;
+	// The radar disc is round even when legacy HUD scaling makes its atlas
+	// rectangle non-square. Text panels retain their own content proportions.
+	layer->size.height = panel == WristHudSettings::MAP ? layer->size.width :
+		layer->size.width*height/width;
 	return true;
 }
 
-void PrepareWristHud()
+void PrepareWristHud(const WristHudFrame &frame)
 {
 	gWristHud.routingMask = 0;
 	gWristHudLayerMask = 0;
-	if(!gGameplayHudVisible || IsTrackedScopeActive() ||
+	if(!frame.anchorMask || !gGameplayHudVisible || IsTrackedScopeActive() ||
 	   !ShouldRouteGameplayHudToVr() || gWristHudFailed) return;
 	bool any = false;
 	for(int panel = 0; panel < WristHudSettings::PANEL_COUNT; panel++)
@@ -120,14 +204,12 @@ void PrepareWristHud()
 		VrLog("Wrist HUD atlas creation failed; keeping classic HUD\n");
 		return;
 	}
+	const WristHudLayoutScope layout;
 	for(int panel = 0; panel < WristHudSettings::PANEL_COUNT; panel++){
 		if(!gWristHud.enabled[panel]) continue;
 		// A gaze-hidden panel stays off the classic HUD as on standalone.
-		const bool vehicle = FindPlayerVehicle() != nil;
-		if(vehicle && (!gWristHud.inVehicle || !IsImmersiveDrivingActive())) continue;
-		if(!vehicle && !gTrackedHandPoseValid[gWristHud.hand[panel]]) continue;
 		bool visible = false;
-		if(BuildWristHudLayer(panel, &gWristHudLayers[panel], &visible)){
+		if(BuildWristHudLayer(frame, panel, &gWristHudLayers[panel], &visible)){
 			gWristHud.routingMask |= 1u << panel;
 			if(visible) gWristHudLayerMask |= 1u << panel;
 		}
@@ -144,7 +226,10 @@ void UpdateWristHudAtlas(RwCamera *camera)
 		gWristHudFailed = true;
 		return;
 	}
-	RenderVrWristHudContents(gWristHudLayerMask);
+	{
+		const WristHudLayoutScope layout;
+		RenderVrWristHudContents(gWristHudLayerMask);
+	}
 	RwCameraEndUpdate(camera);
 	if(!CopyRasterToSwapchain(gHudColor, VR_HUD_WIDTH, VR_HUD_HEIGHT,
 		gWristHudSwapchain,
