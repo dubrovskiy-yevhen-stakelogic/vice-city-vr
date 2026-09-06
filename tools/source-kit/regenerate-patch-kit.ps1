@@ -162,7 +162,7 @@ try {
 
     # Copy only the reviewed kit layout. Development-tree discovery is never used.
     $rootFiles = @('.gitattributes', '.gitignore', 'ASSEMBLE_SOURCE.bat', 'AUDIT_SOURCE_KIT.bat',
-        'BUILD_PC.bat', 'BUILDING.md', 'LICENSE', 'NOTICE', 'NOTICE.md', 'patch-manifest.json',
+        'BUILD_PC.bat', 'BUILDING.md', 'INSTALL_DLSS5.bat', 'LICENSE', 'NOTICE', 'NOTICE.md', 'patch-manifest.json',
         'README.md', 'REGENERATE_PATCH_KIT.bat', 'RELEASING.md', 'SOURCE_KIT.md',
         'SOURCE_MANIFEST.sha256', 'THIRD_PARTY_NOTICES.md', 'TRANSFER_PC_SAVES_TO_QUEST.bat', 'VERSION')
     $rootDirectories = @('docs', 'librw', 'overlay', 'patches', 'third_party', 'tools')

@@ -5,6 +5,13 @@ renderer and a full OpenXR VR gameplay and interface layer.
 
 Source-kit version: `0.5.5-alpha-pc`.
 
+Already have the playable PCVR build? For optional DLSS 5 setup, double-click
+[`INSTALL_DLSS5.bat`](INSTALL_DLSS5.bat), select your game's `reVC.exe` and follow
+the prompts. It downloads pinned runtime files, checks them and backs up replaced
+files. It uses a community mirror as well as NVIDIA; the RTX 40 option is a
+modified, experimental model. No programming is needed. See
+[the setup guide](docs/DLSS5_SETUP.md) before accepting the downloads.
+
 ## What changes from the original game
 
 ### Modern graphics and rendering

@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "streamline": {
+    "label": "Streamline 2.13.0.0 (community mirror, NVIDIA-signed files)",
+    "url": "https://github.com/RankFTW/rhi-repo/releases/download/streamline-2.13.0.0/streamline_2.13.0.0.zip",
+    "sha256": "7f38b5b2b7cc83ae859ccb3266160b8e5e517f379f81987fe3c758ae5c9e8c02",
+    "size": 2562386,
+    "format": "zip",
+    "files": [
+      { "name": "sl.interposer.dll", "archivePath": "sl.interposer.dll", "size": 651392, "sha256": "27b2190057994c0b287c2c5716953bf1586f6499ac12fbbb2092b9aaf8396570", "signature": "NVIDIA" },
+      { "name": "sl.common.dll", "archivePath": "sl.common.dll", "size": 830592, "sha256": "a4b2b5acbe49fbc6d44dd432cac19cd53218f698b2539dc7ed0fb268c72cfc8d", "signature": "NVIDIA" },
+      { "name": "sl.dlss.dll", "archivePath": "sl.dlss.dll", "size": 421504, "sha256": "1eb5fb3d6f01d340fe086d981cc2de4f18aa6d05ee276e5cf28ecd54818dcc8b", "signature": "NVIDIA" },
+      { "name": "sl.pcl.dll", "archivePath": "sl.pcl.dll", "size": 360064, "sha256": "12aa4e76c28a27c735e4ecb3072f44d09428acb107b70ac38e4bd48ddb05f88d", "signature": "NVIDIA" },
+      { "name": "sl.dlss_nr.dll", "archivePath": "sl.dlss_nr.dll", "size": 401024, "sha256": "9f6672e5e0170dc118a3188d21bda187e1fc1aa3502895b21ab846d23165c11d", "signature": "NVIDIA" }
+    ]
+  },
+  "superResolution": {
+    "label": "DLSS SR 310.7.0 (official NVIDIA source)",
+    "url": "https://raw.githubusercontent.com/NVIDIA/DLSS/a291cc7d2cc642a51566f3dfd5376f635cd1b284/lib/Windows_x86_64/rel/nvngx_dlss.dll",
+    "sha256": "be6e434a94ca32499515eb62ca0e6c274526055d568d0426e4c652dcdfb6ee6e",
+    "size": 58977904,
+    "format": "dll",
+    "files": [
+      { "name": "nvngx_dlss.dll", "size": 58977904, "sha256": "be6e434a94ca32499515eb62ca0e6c274526055d568d0426e4c652dcdfb6ee6e", "signature": "NVIDIA" }
+    ]
+  },
+  "RTX50": {
+    "label": "DLSS NR 310.8.0 (community mirror, NVIDIA-signed model)",
+    "url": "https://github.com/RankFTW/rhi-repo/releases/download/dlssnr-310.8.0/nvngx_dlssnr_310.8.0.zip",
+    "sha256": "388c0a7912e15ec911b9c9e11a692142b11fe387ddf2b637d8c358138fffb3ac",
+    "size": 109425288,
+    "format": "zip",
+    "files": [
+      { "name": "nvngx_dlssnr.dll", "archivePath": "nvngx_dlssnr.dll", "size": 165840496, "sha256": "e16bcf15e16e13f527491cdf7845b2fe6521a738d8f7c9c721866a8496e1fc8e", "signature": "NVIDIA" }
+    ]
+  },
+  "RTX40": {
+    "label": "DLSS NR 310.8.0-RTX40 (community-modified experimental model)",
+    "url": "https://github.com/RankFTW/rhi-repo/releases/download/dlssnr-310.8.0-RTX40/nvngx_dlssnr_310.8.0-RTX40.zip",
+    "sha256": "46124cfaef532ad5f6da07494772ea8c1b3e719f934e254385697f38d1289e3f",
+    "size": 110604522,
+    "format": "zip",
+    "files": [
+      { "name": "nvngx_dlssnr.dll", "archivePath": "nvngx_dlssnr.dll", "size": 165840496, "sha256": "4b8d19bc3eff58a084f5eca7489c921501c203450169fb82ff4f649a4482ba05", "signature": "ModifiedPinned" }
+    ]
+  }
+}

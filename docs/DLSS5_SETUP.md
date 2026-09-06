@@ -7,7 +7,62 @@ The source kit does not contain NVIDIA DLLs, model weights, SDK archives, or
 modified NVIDIA files. Source integration alone does not make an unsupported
 GPU or incompatible model compatible.
 
-## Obtain the dependencies yourself
+## Easy setup for players
+
+You need the playable Windows x64 Vice City VR build, not just this source kit.
+The game folder must contain `reVC.exe` and the project-built
+`nvngx.dll_dlssnr.dll`. This installer does not compile or download the game.
+
+1. Close Vice City VR. Extract the setup ZIP or the source-kit ZIP completely.
+2. Double-click `INSTALL_DLSS5.bat`, choose **Install**, then select the game's
+   `reVC.exe` in the file picker.
+3. Choose the RTX 50 signed-model profile or the experimental RTX 40 profile.
+4. Review the sources and type `INSTALL`. The modified RTX 40 model also
+   requires typing `RTX40` to accept its separate warning.
+5. Wait for download and verification. `INSTALLED` means the files are in place,
+   not that neural rendering has been tested on your GPU.
+6. Start the game yourself and use the Graphics settings described below.
+
+No Git, compiler or headset is needed to run setup. It never starts the game,
+changes VR/settings files, stops processes or modifies Windows driver folders.
+If your game folder is not writable, move/extract the player build to a folder
+you can write to instead of disabling Windows protections.
+
+Run the same launcher again and choose **Restore** to undo an installation.
+Original files and a restore manifest are kept in `dlss5-backups` inside the game
+folder. Restore refuses to overwrite files changed since installation; keep the
+backup if you manually update DLLs later. Reinstalling an identical set changes
+nothing. Verified downloads are cached in the local application data directory
+under `ViceCityVR/DLSS5Cache`; they can be reused on another run.
+
+### Download sources and limitations
+
+The catalog in `tools/dlss/packages.json` pins URLs, archive and DLL SHA-256
+values, sizes and signature policies. The installer does not follow a moving
+`latest` release or download and execute another installer.
+
+- DLSS SR 310.7.0 comes directly from the
+  [pinned NVIDIA DLSS SDK revision](https://github.com/NVIDIA/DLSS/tree/a291cc7d2cc642a51566f3dfd5376f635cd1b284).
+- Streamline 2.13 comes from the
+  [RankFTW community mirror](https://github.com/RankFTW/rhi-repo/releases/tag/streamline-2.13.0.0).
+  The five installed DLLs have valid NVIDIA signatures and match the development
+  build's Streamline files. Streamline 2.14 is not installed automatically.
+- The RTX 50 profile uses the
+  [NVIDIA-signed NR 310.8.0 model from the same mirror](https://github.com/RankFTW/rhi-repo/releases/tag/dlssnr-310.8.0).
+- The RTX 40 profile uses the
+  [modified NR 310.8.0-RTX40 model](https://github.com/RankFTW/rhi-repo/releases/tag/dlssnr-310.8.0-RTX40).
+  Its embedded NVIDIA signature is invalid because its contents were changed.
+  Only its exact pinned hash is accepted, with separate user consent. It is not
+  the same file as the locally modified development model; its in-game
+  compatibility has not been established. Other GPU families are not validated.
+
+Original NVIDIA files must pass Windows signature validation. The exception is
+limited to that one pinned modified RTX 40 model, not arbitrary unsigned DLLs.
+Checksums establish which bytes were downloaded; they do not establish safety,
+redistribution rights or runtime compatibility. Review the publishers' terms.
+No NVIDIA files or model weights are bundled in the setup ZIP or source kit.
+
+## Manual dependency setup
 
 Use NVIDIA's [Streamline project](https://github.com/NVIDIA-RTX/Streamline)
 and [official releases](https://github.com/NVIDIA-RTX/Streamline/releases)
@@ -20,8 +75,9 @@ DLSS SR download is not a substitute for the Neural Rendering model.
 Use a coherent, compatible x64 runtime set. Do not mix `sl.*` DLLs from
 different Streamline versions, overwrite system driver DLLs, disable signature
 checks, or download replacement DLLs from untrusted file-sharing sites.
-If an authorized compatible NR model is not available to you, use ordinary
-DLAA/DLSS. This kit does not provide a model downloader or an unlocked model.
+If you do not want to use the community downloads above and an authorized
+compatible NR model is not available to you, use ordinary DLAA/DLSS. The kit
+contains installer source and connection instructions, not a bundled model.
 
 The local integration was developed with Streamline runtime 2.13.0, DLSS SR
 310.7.0 and NR model 310.8.0. These are compatibility observations, not a claim
