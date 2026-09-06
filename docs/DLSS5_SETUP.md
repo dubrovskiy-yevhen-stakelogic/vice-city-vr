@@ -9,6 +9,13 @@ GPU or incompatible model compatible.
 
 ## Easy setup for players
 
+For the required runtime **without DLSS 5**, use `SETUP_RUNTIME.bat` or the
+installer's **BASE** profile. This installs four Streamline DLLs and the ordinary
+DLAA/DLSS SR DLL; it does not download or replace the NR plugin/model. The
+executable needs `sl.interposer.dll` even with temporal AA off. Installing these
+base dependencies is not a guarantee that NVIDIA AA will work on every GPU.
+You can add the optional NR files later with `INSTALL_DLSS5.bat`.
+
 You need the playable Windows x64 Vice City VR build, not just this source kit.
 The game folder must contain `reVC.exe` and the project-built
 `nvngx.dll_dlssnr.dll`. This installer does not compile or download the game.
@@ -45,7 +52,8 @@ values, sizes and signature policies. The installer does not follow a moving
   [pinned NVIDIA DLSS SDK revision](https://github.com/NVIDIA/DLSS/tree/a291cc7d2cc642a51566f3dfd5376f635cd1b284).
 - Streamline 2.13 comes from the
   [RankFTW community mirror](https://github.com/RankFTW/rhi-repo/releases/tag/streamline-2.13.0.0).
-  The five installed DLLs have valid NVIDIA signatures and match the development
+  The five DLLs used by the NR profiles (four in BASE) have valid NVIDIA
+  signatures and match the development
   build's Streamline files. Streamline 2.14 is not installed automatically.
 - The RTX 50 profile uses the
   [NVIDIA-signed NR 310.8.0 model from the same mirror](https://github.com/RankFTW/rhi-repo/releases/tag/dlssnr-310.8.0).

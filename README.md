@@ -12,6 +12,11 @@ files. It uses a community mirror as well as NVIDIA; the RTX 40 option is a
 modified, experimental model. No programming is needed. See
 [the setup guide](docs/DLSS5_SETUP.md) before accepting the downloads.
 
+For a first installation without DLSS 5, run [`SETUP_RUNTIME.bat`](SETUP_RUNTIME.bat)
+instead. It installs the required Streamline runtime and ordinary DLAA/DLSS SR
+files, without downloading the Neural Rendering model or enabling any effects.
+The [player quick start](docs/PLAYER_README.md) explains which archive to use.
+
 ## What changes from the original game
 
 ### Modern graphics and rendering

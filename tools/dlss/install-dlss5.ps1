@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$GameDir,
-    [ValidateSet('RTX50', 'RTX40')][string]$Profile,
+    [ValidateSet('BASE', 'RTX50', 'RTX40')][string]$Profile,
     [string]$CacheDir,
     [string]$RestoreBackup,
     [switch]$VerifyOnly,
@@ -37,7 +37,7 @@ try {
     Write-Host ''
     $restore = -not [string]::IsNullOrWhiteSpace($RestoreBackup)
     if (-not $NoPrompt -and -not $VerifyOnly -and -not $restore) {
-        Write-Host '1 - Install DLSS 5 runtime files'
+        Write-Host '1 - Install base runtime or optional DLSS 5 files'
         Write-Host '2 - Restore a previous runtime backup'
         Write-Host 'Anything else - Cancel'
         $choice = Read-Host 'Choose 1 or 2'
@@ -73,33 +73,39 @@ try {
         exit 0
     }
     if ([string]::IsNullOrWhiteSpace($Profile)) {
-        if ($NoPrompt) { throw '-Profile RTX50 or RTX40 is required without prompts.' }
+        if ($NoPrompt) { throw '-Profile BASE, RTX50 or RTX40 is required without prompts.' }
         try {
             $gpus = @(Get-CimInstance Win32_VideoController -ErrorAction Stop | ForEach-Object { $_.Name })
             Write-Host ('Detected graphics: ' + ($gpus -join ', '))
         } catch { Write-Host 'Graphics card could not be detected; choose it below.' }
+        Write-Host '0 - BASE: required runtime and ordinary DLSS/DLAA, without the DLSS 5 model'
         Write-Host '1 - RTX 50 series: NVIDIA-signed NR model from a community mirror'
         Write-Host '2 - RTX 40 series: modified experimental NR model (not NVIDIA-signed)'
-        Write-Host 'Other GPUs are not validated by this installer.'
-        switch (Read-Host 'Choose 1 or 2; anything else cancels') {
+        Write-Host 'For other GPUs, choose BASE to supply the required loader; DLSS/DLAA still needs a supported NVIDIA GPU.'
+        switch (Read-Host 'Choose 0, 1 or 2; anything else cancels') {
+            '0' { $Profile = 'BASE' }
             '1' { $Profile = 'RTX50' }
             '2' { $Profile = 'RTX40' }
             default { Write-Host 'Cancelled.'; exit 0 }
         }
     }
     $catalog = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'packages.json') -Raw | ConvertFrom-Json
-    if ($catalog.schema -ne 1) { throw 'Unsupported download catalog.' }
-    $packages = @($catalog.streamline, $catalog.superResolution, $catalog.$Profile)
+    $packages = @(Get-DlssProfilePackages $catalog $Profile)
     $files = @($packages | ForEach-Object { $_.files })
     Write-Host ''
     Write-Host 'Sources and pinned versions:' -ForegroundColor Cyan
     foreach ($package in $packages) { Write-Host $package.label; Write-Host $package.url }
     Write-Host ''
-    Write-Host 'Only DLSS SR is downloaded directly from NVIDIA. Streamline and NR use RankFTW/rhi-repo, a third-party mirror.' -ForegroundColor Yellow
+    if ($Profile -eq 'BASE') {
+        Write-Host 'DLSS SR is downloaded directly from NVIDIA. The required Streamline runtime uses RankFTW/rhi-repo, a third-party mirror.' -ForegroundColor Yellow
+        Write-Host 'BASE installs five runtime files. No NR model is downloaded; existing DLSS 5 plugin/model files are left untouched.'
+    } else {
+        Write-Host 'Only DLSS SR is downloaded directly from NVIDIA. Streamline and NR use RankFTW/rhi-repo, a third-party mirror.' -ForegroundColor Yellow
+    }
     Write-Host 'Checksums pin these exact files; they do not guarantee safety, licensing permission or in-game compatibility.'
     Write-Host 'Review the NVIDIA RTX SDK terms and the linked releases before accepting.'
     Write-Host 'https://github.com/NVIDIA/DLSS/blob/a291cc7d2cc642a51566f3dfd5376f635cd1b284/LICENSE.txt'
-    Write-Host 'Setup verifies and installs files only. It does not certify that DLSS 5 runs on your GPU.'
+    Write-Host 'Setup verifies and installs files only. It does not certify in-game compatibility on your GPU.'
     if (-not $AcceptCommunityRuntime) {
         if ($NoPrompt) { throw 'Explicit -AcceptCommunityRuntime is required for third-party downloads.' }
         if ((Read-Host 'Type INSTALL to accept these sources and continue') -cne 'INSTALL') {
@@ -136,12 +142,17 @@ try {
         Expand-DlssPackage $download $package $stage
     }
     if ($VerifyOnly) {
-        Write-Host 'VERIFIED: all seven pinned runtime files passed the selected checks. No game files were changed.' -ForegroundColor Green
+        Write-Host ("VERIFIED: all {0} pinned runtime files passed the selected checks. No game files were changed." -f $files.Count) -ForegroundColor Green
     } else {
         [void](Install-DlssFiles $GameDir $stage $files $Profile)
         Write-Host 'INSTALLED: runtime files verified and placed beside reVC.exe.' -ForegroundColor Green
-        Write-Host 'Start the game yourself. VR Settings > Graphics > Temporal AA: DLAA; Neural DLSS 5: ON; Passes: 1X.'
-        Write-Host 'Confirm ACTIVE and compare against the baseline. Installation success alone is not proof of neural rendering.'
+        if ($Profile -eq 'BASE') {
+            Write-Host 'Start Vice City VR using its VR launcher. Your existing graphics and VR settings have not been changed.'
+            Write-Host 'DLSS 5 is optional and was not installed by BASE. You can choose an NR profile later if wanted.'
+        } else {
+            Write-Host 'Start the game yourself. VR Settings > Graphics > Temporal AA: DLAA; Neural DLSS 5: ON; Passes: 1X.'
+            Write-Host 'Confirm ACTIVE and compare against the baseline. Installation success alone is not proof of neural rendering.'
+        }
         Write-Host 'To undo this installation, run INSTALL_DLSS5.bat again and choose Restore.'
     }
     Write-Host "Verified downloads are cached for reuse: $CacheDir"

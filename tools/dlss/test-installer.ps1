@@ -112,6 +112,27 @@ foreach ($name in $script:DlssNames) {
     $script:Specs += New-TestSpec $path $name
     $marker++
 }
+$script:BaseSpecs = @($script:Specs | Where-Object { $script:DlssBaseNames -contains $_.name })
+
+Invoke-Test 'BASE selects exactly five files without an NR model package or catalog mutation' {
+    $catalog = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'packages.json') -Raw | ConvertFrom-Json
+    $packages = @(Get-DlssProfilePackages $catalog 'BASE')
+    Assert-Test ($packages.Count -eq 2) 'BASE must use only Streamline and DLSS SR downloads.'
+    Assert-Test (@($packages[0].files).Count -eq 4) 'BASE did not filter Streamline to four files.'
+    Assert-Test (@($catalog.streamline.files).Count -eq 5) 'BASE changed the shared catalog.'
+    Assert-DlssRuntimeSet @($packages | ForEach-Object { $_.files }) 'BASE'
+    foreach ($profile in @('RTX50', 'RTX40')) {
+        $nrPackages = @(Get-DlssProfilePackages $catalog $profile)
+        Assert-Test ($nrPackages.Count -eq 3) 'NR profile lost a required package.'
+        Assert-DlssRuntimeSet @($nrPackages | ForEach-Object { $_.files }) $profile
+    }
+}
+
+Invoke-Test 'BASE rejects a catalog missing a required loader file' {
+    $catalog = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'packages.json') -Raw | ConvertFrom-Json
+    $catalog.streamline.files = @($catalog.streamline.files | Where-Object { $_.name -ne 'sl.interposer.dll' })
+    Assert-TestThrows { Get-DlssProfilePackages $catalog 'BASE' } 'complete, unique'
+}
 
 Invoke-Test 'x64 PE and complete pinned fixture payload accepted' {
     foreach ($spec in $script:Specs) { Assert-DlssPayload (Join-Path $script:Stage $spec.name) $spec }
@@ -182,11 +203,87 @@ function Assert-DlssGameClosed { }
 Invoke-Test 'incomplete and duplicate runtime sets rejected before writes' {
     $game = New-TestGame
     $before = Get-TestSnapshot $game
-    Assert-TestThrows { Install-DlssFiles $game $script:Stage $script:Specs[0..5] 'Fixture' } 'complete, unique'
+    Assert-TestThrows { Install-DlssFiles $game $script:Stage $script:Specs[0..5] 'RTX50' } 'complete, unique'
     $duplicate = @($script:Specs[0..5]) + @($script:Specs[0])
-    Assert-TestThrows { Install-DlssFiles $game $script:Stage $duplicate 'Fixture' } 'complete, unique'
+    Assert-TestThrows { Install-DlssFiles $game $script:Stage $duplicate 'RTX50' } 'complete, unique'
     Assert-TestSnapshot $before $game
     Assert-Test (-not (Test-Path -LiteralPath (Join-Path $game 'dlss5-backups'))) 'Rejected install created a backup.'
+}
+
+Invoke-Test 'BASE rejects missing, duplicate, substituted and extra NR files before writes' {
+    $game = New-TestGame
+    $before = Get-TestSnapshot $game
+    Assert-TestThrows { Install-DlssFiles $game $script:Stage $script:BaseSpecs[0..3] 'BASE' } 'complete, unique'
+    $duplicate = @($script:BaseSpecs[0..3]) + @($script:BaseSpecs[0])
+    Assert-TestThrows { Install-DlssFiles $game $script:Stage $duplicate 'BASE' } 'complete, unique'
+    $substituted = @($script:BaseSpecs[0..3]) + @($script:Specs[6])
+    Assert-TestThrows { Install-DlssFiles $game $script:Stage $substituted 'BASE' } 'complete, unique'
+    Assert-TestThrows { Install-DlssFiles $game $script:Stage $script:Specs 'BASE' } 'complete, unique'
+    Assert-TestThrows { Install-DlssFiles $game $script:Stage $script:BaseSpecs 'RTX40' } 'complete, unique'
+    Assert-TestSnapshot $before $game
+    Assert-Test (-not (Test-Path -LiteralPath (Join-Path $game 'dlss5-backups'))) 'Rejected install created a backup.'
+}
+
+Invoke-Test 'invalid runtime profile rejected before writes' {
+    $game = New-TestGame
+    $before = Get-TestSnapshot $game
+    Assert-TestThrows { Install-DlssFiles $game $script:Stage $script:Specs 'Fixture' } 'Invalid runtime profile'
+    Assert-TestSnapshot $before $game
+    Assert-Test (-not (Test-Path -LiteralPath (Join-Path $game 'dlss5-backups'))) 'Invalid profile created a backup.'
+}
+
+Invoke-Test 'BASE installs exactly five files, is idempotent and restores cleanly' {
+    $game = New-TestGame
+    New-TestPe (Join-Path $game 'sl.interposer.dll') 210
+    $before = Get-TestSnapshot $game
+    $backup = Install-DlssFiles $game $script:Stage $script:BaseSpecs 'BASE'
+    $after = Get-TestSnapshot $game
+    Assert-Test ($after.Count -eq 8) 'BASE wrote unexpected files into the game root.'
+    foreach ($spec in $script:BaseSpecs) {
+        Assert-Test ($after[$spec.name] -ceq $spec.sha256) "BASE file $($spec.name) was not installed."
+    }
+    Assert-Test (-not $after.ContainsKey('sl.dlss_nr.dll')) 'BASE installed the NR plugin.'
+    Assert-Test (-not $after.ContainsKey('nvngx_dlssnr.dll')) 'BASE installed an NR model.'
+    $journal = Get-Content -LiteralPath (Join-Path $backup 'manifest.json') -Raw | ConvertFrom-Json
+    Assert-Test ($journal.profile -ceq 'BASE' -and @($journal.files).Count -eq 5) 'BASE backup has the wrong profile or file count.'
+    $second = Install-DlssFiles $game $script:Stage $script:BaseSpecs 'BASE'
+    Assert-Test ($null -eq $second) 'Identical BASE install was not a no-op.'
+    Assert-Test (@(Get-ChildItem -LiteralPath (Join-Path $game 'dlss5-backups') -Directory).Count -eq 1) 'BASE reinstall added a backup.'
+    Restore-DlssBackup $game $backup
+    Assert-TestSnapshot $before $game
+    Restore-DlssBackup $game $backup
+    Assert-TestSnapshot $before $game
+}
+
+Invoke-Test 'BASE installation and restoration preserve existing and subsequently changed NR files' {
+    $game = New-TestGame
+    New-TestPe (Join-Path $game 'sl.dlss_nr.dll') 220
+    New-TestPe (Join-Path $game 'nvngx_dlssnr.dll') 221
+    $before = Get-TestSnapshot $game
+    $backup = Install-DlssFiles $game $script:Stage $script:BaseSpecs 'BASE'
+    foreach ($name in @('sl.dlss_nr.dll', 'nvngx_dlssnr.dll')) {
+        Assert-Test ((Get-DlssHash (Join-Path $game $name)) -ceq $before[$name]) "BASE installation changed $name."
+        Assert-Test (-not (Test-Path -LiteralPath (Join-Path $backup $name))) "BASE backed up unrelated $name."
+    }
+    New-TestPe (Join-Path $game 'nvngx_dlssnr.dll') 222
+    $before['nvngx_dlssnr.dll'] = Get-DlssHash (Join-Path $game 'nvngx_dlssnr.dll')
+    Restore-DlssBackup $game $backup
+    Assert-TestSnapshot $before $game
+}
+
+Invoke-Test 'BASE restore rejects NR entries and invalid profiles before writes' {
+    $game = New-TestGame
+    $backup = Install-DlssFiles $game $script:Stage $script:BaseSpecs 'BASE'
+    $journal = Get-Content -LiteralPath (Join-Path $backup 'manifest.json') -Raw | ConvertFrom-Json
+    $journal.files[4].name = 'nvngx_dlssnr.dll'
+    Write-TestManifest $backup $journal
+    $before = Get-TestSnapshot $game
+    Assert-TestThrows { Restore-DlssBackup $game $backup } 'Invalid backup manifest'
+    Assert-TestSnapshot $before $game
+    $journal.profile = 'Unknown'
+    Write-TestManifest $backup $journal
+    Assert-TestThrows { Restore-DlssBackup $game $backup } 'Invalid runtime profile'
+    Assert-TestSnapshot $before $game
 }
 
 Invoke-Test 'late corrupt payload prevents all runtime writes' {
@@ -194,7 +291,7 @@ Invoke-Test 'late corrupt payload prevents all runtime writes' {
     $before = Get-TestSnapshot $game
     $specs = @($script:Specs[0..5]) + @(New-TestSpec (Join-Path $script:Stage $script:DlssNames[6]) $script:DlssNames[6])
     $specs[6].sha256 = ('0' * 64)
-    Assert-TestThrows { Install-DlssFiles $game $script:Stage $specs 'Fixture' } 'verification failed'
+    Assert-TestThrows { Install-DlssFiles $game $script:Stage $specs 'RTX50' } 'verification failed'
     Assert-TestSnapshot $before $game
     Assert-Test (-not (Test-Path -LiteralPath (Join-Path $game 'dlss5-backups'))) 'Rejected install created a backup.'
 }
@@ -204,7 +301,7 @@ Invoke-Test 'install backs up originals and changes only seven runtime names' {
     New-TestPe (Join-Path $game $script:DlssNames[0]) 200
     New-TestPe (Join-Path $game $script:DlssNames[1]) 201
     $before = Get-TestSnapshot $game
-    $backup = Install-DlssFiles $game $script:Stage $script:Specs 'Fixture'
+    $backup = Install-DlssFiles $game $script:Stage $script:Specs 'RTX50'
     $after = Get-TestSnapshot $game
     Assert-Test ($after.Count -eq 10) 'Installer wrote unexpected game-root files.'
     foreach ($name in $before.Keys) {
@@ -223,10 +320,10 @@ Invoke-Test 'install backs up originals and changes only seven runtime names' {
 
 Invoke-Test 'identical reinstall is a no-op without another backup' {
     $game = New-TestGame
-    [void](Install-DlssFiles $game $script:Stage $script:Specs 'Fixture')
+    [void](Install-DlssFiles $game $script:Stage $script:Specs 'RTX50')
     $before = Get-TestSnapshot $game
     $countBefore = @(Get-ChildItem -LiteralPath (Join-Path $game 'dlss5-backups') -Directory).Count
-    $second = Install-DlssFiles $game $script:Stage $script:Specs 'Fixture'
+    $second = Install-DlssFiles $game $script:Stage $script:Specs 'RTX50'
     Assert-Test ($null -eq $second) 'Identical install did not report no-op.'
     Assert-TestSnapshot $before $game
     Assert-Test (@(Get-ChildItem -LiteralPath (Join-Path $game 'dlss5-backups') -Directory).Count -eq $countBefore) 'Identical install made a redundant backup.'
@@ -236,7 +333,7 @@ Invoke-Test 'restore recovers original files and removes newly installed files' 
     $game = New-TestGame
     New-TestPe (Join-Path $game $script:DlssNames[0]) 200
     $before = Get-TestSnapshot $game
-    $backup = Install-DlssFiles $game $script:Stage $script:Specs 'Fixture'
+    $backup = Install-DlssFiles $game $script:Stage $script:Specs 'RTX50'
     Restore-DlssBackup $game $backup
     Assert-TestSnapshot $before $game
     Restore-DlssBackup $game $backup
@@ -247,7 +344,7 @@ Invoke-Test 'restore recovers original files and removes newly installed files' 
 Invoke-Test 'restore preflight preserves all files when a runtime was modified' {
     $game = New-TestGame
     New-TestPe (Join-Path $game $script:DlssNames[0]) 200
-    $backup = Install-DlssFiles $game $script:Stage $script:Specs 'Fixture'
+    $backup = Install-DlssFiles $game $script:Stage $script:Specs 'RTX50'
     New-TestPe (Join-Path $game $script:DlssNames[6]) 250
     $beforeRestore = Get-TestSnapshot $game
     Assert-TestThrows { Restore-DlssBackup $game $backup } 'Changed since installation'
@@ -266,7 +363,7 @@ Invoke-Test 'failed install rolls back previously replaced files' {
         & $script:AtomicOriginal $Source $Target $ExpectedSha256
     }
     try {
-        Assert-TestThrows { Install-DlssFiles $game $script:Stage $script:Specs 'Fixture' } 'Injected copy failure'
+        Assert-TestThrows { Install-DlssFiles $game $script:Stage $script:Specs 'RTX50' } 'Injected copy failure'
         Assert-Test ($script:AtomicCalls -ge 3) 'Rollback did not restore the first file.'
         Assert-TestSnapshot $before $game
         Assert-Test (@(Get-ChildItem -LiteralPath $game -Filter '.dlss5-*.tmp').Count -eq 0) 'Temporary runtime file was left behind.'
@@ -292,7 +389,7 @@ Invoke-Test 'atomic replacement refuses a source changed after verification' {
 foreach ($badKind in @('unknown', 'duplicate', 'traversal', 'nonboolean')) {
     Invoke-Test "restore rejects $badKind manifest before writes" {
         $game = New-TestGame
-        $backup = Install-DlssFiles $game $script:Stage $script:Specs 'Fixture'
+        $backup = Install-DlssFiles $game $script:Stage $script:Specs 'RTX50'
         $journal = Get-Content -LiteralPath (Join-Path $backup 'manifest.json') -Raw | ConvertFrom-Json
         switch ($badKind) {
             'unknown' { $journal.files[6].name = 'reVC.exe' }
@@ -353,6 +450,29 @@ Invoke-Test 'CLI requires explicit community-source consent before cache creatio
     Assert-Test ($LASTEXITCODE -eq 1) 'CLI did not reject missing community consent.'
     Assert-Test (($output -join "`n") -match 'Explicit -AcceptCommunityRuntime is required') 'CLI stopped for an unexpected reason.'
     Assert-Test (-not (Test-Path -LiteralPath $cache)) 'CLI created cache before obtaining source consent.'
+}
+
+Invoke-Test 'BASE CLI discloses mirror and requires consent before cache creation' {
+    $cli = Join-Path $PSScriptRoot 'install-dlss5.ps1'
+    $cache = Join-Path $script:FixtureRoot 'unconsented-base-cache'
+    $output = & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $cli -NoPrompt -VerifyOnly -Profile BASE -CacheDir $cache 2>&1
+    Assert-Test ($LASTEXITCODE -eq 1) 'BASE CLI did not reject missing source consent.'
+    $text = $output -join "`n"
+    Assert-Test ($text -match 'Explicit -AcceptCommunityRuntime is required') 'BASE CLI stopped for an unexpected reason.'
+    Assert-Test ($text -match 'RankFTW/rhi-repo, a third-party mirror') 'BASE did not disclose the mirror.'
+    Assert-Test ($text -notmatch 'releases/download/dlssnr') 'BASE selected an NR model download.'
+    Assert-Test (-not (Test-Path -LiteralPath $cache)) 'BASE created a cache without source consent.'
+}
+
+Invoke-Test 'BASE CLI needs no modified-model consent and reaches cache validation without downloading' {
+    $cli = Join-Path $PSScriptRoot 'install-dlss5.ps1'
+    $cache = Join-Path $PSScriptRoot 'disallowed-base-cache'
+    $output = & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $cli -NoPrompt -VerifyOnly -Profile BASE -AcceptCommunityRuntime -CacheDir $cache 2>&1
+    Assert-Test ($LASTEXITCODE -eq 1) 'BASE accepted a cache inside the source kit.'
+    $text = $output -join "`n"
+    Assert-Test ($text -match 'Download caches must stay outside') 'BASE failed before reaching cache validation.'
+    Assert-Test ($text -notmatch 'AcceptModifiedModel|RTX40 WARNING|releases/download/dlssnr') 'BASE requested or selected a modified NR model.'
+    Assert-Test (-not (Test-Path -LiteralPath $cache)) 'BASE created a disallowed cache.'
 }
 
 Invoke-Test 'CLI requires additional modified-model consent before cache creation' {

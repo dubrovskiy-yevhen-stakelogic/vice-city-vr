@@ -2,6 +2,40 @@ Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 $script:DlssNames = @('sl.interposer.dll', 'sl.common.dll', 'sl.dlss.dll',
     'sl.pcl.dll', 'sl.dlss_nr.dll', 'nvngx_dlss.dll', 'nvngx_dlssnr.dll')
+$script:DlssBaseNames = @('sl.interposer.dll', 'sl.common.dll', 'sl.dlss.dll',
+    'sl.pcl.dll', 'nvngx_dlss.dll')
+
+function Get-DlssProfileNames([string]$Profile) {
+    switch ($Profile) {
+        'BASE' { return $script:DlssBaseNames }
+        'RTX50' { return $script:DlssNames }
+        'RTX40' { return $script:DlssNames }
+        default { throw 'Invalid runtime profile. Choose BASE, RTX50 or RTX40.' }
+    }
+}
+
+function Assert-DlssRuntimeSet([object[]]$Files, [string]$Profile) {
+    $expected = @(Get-DlssProfileNames $Profile)
+    $names = @($Files | ForEach-Object { [string]$_.name })
+    if ($names.Count -ne $expected.Count -or
+        @(Compare-Object $expected $names).Count -ne 0) {
+        throw "A complete, unique runtime set is required for profile $Profile."
+    }
+}
+
+function Get-DlssProfilePackages($Catalog, [string]$Profile) {
+    $expected = @(Get-DlssProfileNames $Profile)
+    if ($Catalog.schema -ne 1) { throw 'Unsupported download catalog.' }
+    if ($Profile -eq 'BASE') {
+        $streamline = $Catalog.streamline.PSObject.Copy()
+        $streamline.files = @($Catalog.streamline.files | Where-Object { $expected -contains $_.name })
+        $packages = @($streamline, $Catalog.superResolution)
+    } else {
+        $packages = @($Catalog.streamline, $Catalog.superResolution, $Catalog.$Profile)
+    }
+    Assert-DlssRuntimeSet @($packages | ForEach-Object { $_.files }) $Profile
+    return $packages
+}
 
 function Get-DlssHash([string]$Path) {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -236,10 +270,11 @@ function Restore-DlssBackup([string]$GameDir, [string]$BackupDir) {
     $journalPath = Assert-DlssPlainPath (Join-Path $backup 'manifest.json')
     $journal = Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json
     if ($journal.schema -ne 1 -or $journal.gameDir -ine $game) { throw 'This backup belongs to a different installation.' }
+    $allowed = @(Get-DlssProfileNames $journal.profile)
     $seen = @{}
     $pending = @()
     foreach ($entry in $journal.files) {
-        if ($script:DlssNames -notcontains [string]$entry.name -or $seen.ContainsKey($entry.name) -or
+        if ($allowed -notcontains [string]$entry.name -or $seen.ContainsKey($entry.name) -or
             $entry.installedSha256 -cnotmatch '^[a-f0-9]{64}$' -or $entry.existed -isnot [bool]) {
             throw 'Invalid backup manifest.'
         }
@@ -271,11 +306,9 @@ function Restore-DlssBackup([string]$GameDir, [string]$BackupDir) {
 }
 
 function Install-DlssFiles([string]$GameDir, [string]$StageDir, [object[]]$Files, [string]$Profile) {
+    Assert-DlssRuntimeSet $Files $Profile
     $game = Get-DlssGameDirectory $GameDir
     Assert-DlssGameClosed
-    $names = @($Files | ForEach-Object { $_.name })
-    if ($names.Count -ne $script:DlssNames.Count -or
-        @(Compare-Object $script:DlssNames $names).Count -ne 0) { throw 'A complete, unique runtime set is required.' }
     $changes = @()
     foreach ($spec in $Files) {
         Assert-DlssPayload (Join-Path $StageDir $spec.name) $spec
