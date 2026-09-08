@@ -25,7 +25,12 @@ a single headset vendor.
   stereoscopic cutscenes with camera selection and saved camera preferences.
 - The gameplay HUD uses a separate OpenXR quad and can be hidden.
 
+For a black mission cutscene in the headset with a visible monitor image, use
+the external [cutscene mode switch](CUTSCENE_MODE.md) to try stereo without
+navigating the headset menu.
+
 ## Experimental DLSS 5 passes
+
 
 The Graphics menu exposes `DLSS 5 PASSES` with 1X, 2X and 3X choices. 1X is
 the default. In 2X/3X modes each additional neural-rendering pass consumes the
@@ -63,6 +68,9 @@ The original game assets are required and are not provided by this repository.
 
 ## Useful controls
 
+The player-facing [control map](CONTROL_MAP.md) covers movement, weapons,
+driving, menu navigation and the main-menu Controls remapper.
+
 | Chord | Action |
 | --- | --- |
 | Both grips + X | Toggle gameplay HUD |
@@ -72,7 +80,7 @@ The original game assets are required and are not provided by this repository.
 | Both grips + left stick click + left trigger | Toggle stereo tail mode |
 | Both grips + both thumbstick clicks | Recenter gameplay view |
 
-Locomotion / Controls provides DEFAULT, SWAPPED HANDS and CUSTOM mappings for
+VR Settings / Controls provides DEFAULT, SWAPPED HANDS and CUSTOM mappings for
 on-foot A/B/X/Y, grips and stick clicks. Driving/RC controls, service chords
 and physical triggers are unchanged. DEFAULT preserves the PC right-click
 sprint action. Fire is reserved for the physical trigger; a legacy fire-button

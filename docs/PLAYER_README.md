@@ -42,6 +42,23 @@ The game starts in VR by default. No `vr_settings.ini`, saves or personal
 calibrations are supplied, so an upgrade retains your existing preferences.
 Expensive new effects and Neural Rendering are opt-in on a fresh installation.
 
+## Controller buttons
+
+See the [PCVR control map](CONTROL_MAP.md) for movement, weapons, driving,
+menu shortcuts and remapping. Open VR Settings with **both grips + Menu**;
+if your runtime intercepts Menu, use **both grips + both triggers + X**.
+Button remapping is under **Controls** directly in the main VR Settings menu.
+
+## Transfer standalone Quest saves to PCVR
+
+Close both games, connect your Quest by USB, enable developer mode / USB
+debugging, and run **TRANSFER_QUEST_SAVES_TO_PC.bat**. Accept the debugging
+prompt in the headset. Select your installed PCVR folder when asked, review
+the destination and occupied slots, then type **Y** to transfer. Existing PC
+slots are backed up; Quest saves are kept. No compiler or game rebuild needed.
+For the opposite direction use **TRANSFER_PC_SAVES_TO_QUEST.bat**.
+See [save transfer](SAVE_TRANSFER.md) for requirements and backup locations.
+
 ## Optional DLSS 5
 
 Run **INSTALL_DLSS5.bat**, choose Install, select this game's `reVC.exe`, and
@@ -71,6 +88,12 @@ separately obtained compatible asset packs yourself; Classic uses your game's
 existing assets. Graphics features do not require those replacement packs.
 
 ## If it does not start
+
+If a mission cutscene is visible on the monitor but black in the headset,
+close the game and run **CUTSCENE_MODE.bat**, then choose **1 - STEREO**.
+Select this game's `reVC.exe` if asked. The helper creates the setting if
+needed and backs up an existing settings file. Choose **2 - CINEMA SCREEN**
+to change back. See `docs/CUTSCENE_MODE.md` for details.
 
 - `sl.interposer.dll` missing: run SETUP_RUNTIME first, in the installed game.
 - `MSVCP140.dll` or `VCRUNTIME140*.dll` missing: install the Microsoft x64 runtime

@@ -1,14 +1,20 @@
 [CmdletBinding()]
 param(
+    [ValidateSet("PCToQuest", "QuestToPC")]
+    [string]$Direction = "PCToQuest",
     [string]$PcGameDirectory,
     [string]$AdbPath,
     [string]$Serial,
-    [string]$LogPath = (Join-Path $env:TEMP "ViceCityVR-PC-Saves-To-Quest.log")
+    [string]$LogPath
 )
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 $script:transcriptStarted = $false
+$exportToPc = $Direction -eq "QuestToPC"
+if ([string]::IsNullOrWhiteSpace($LogPath)) {
+    $LogPath = Join-Path $env:TEMP "ViceCityVR-$Direction.log"
+}
 
 function Write-Heading([string]$Text) {
     Write-Host ""
@@ -63,6 +69,45 @@ function Resolve-PcSaveDirectory([string]$RequestedPath) {
         }
     }
     throw "No GTAVCsf1.b ... GTAVCsf8.b files were found in '$selected' or its userfiles folder. Start PC Vice City VR and create a save first."
+}
+
+function Resolve-PcExportDirectory([string]$RequestedPath) {
+    $selected = $RequestedPath
+    if ([string]::IsNullOrWhiteSpace($selected)) {
+        $besideWizard = Split-Path -Parent $PSScriptRoot
+        if (Test-Path -LiteralPath (Join-Path $besideWizard "reVC.exe") -PathType Leaf) {
+            $selected = $besideWizard
+        } else {
+            $selected = Select-Folder "Select your installed PC Vice City VR folder (containing reVC.exe), or its save folder"
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($selected) -or
+        -not (Test-Path -LiteralPath $selected -PathType Container)) {
+        throw "No existing PC game or save folder was selected."
+    }
+    $selected = (Resolve-Path -LiteralPath $selected).Path
+    if (Test-Path -LiteralPath (Join-Path $selected "reVC.exe") -PathType Leaf) {
+        $selected = Join-Path $selected "userfiles"
+    } elseif ((Split-Path -Leaf $selected) -notin @("userfiles", "GTA Vice City User Files") -and
+        -not (Get-ChildItem -LiteralPath $selected -Filter "GTAVCsf*.b" -File | Select-Object -First 1)) {
+        throw "Select the installed game folder containing reVC.exe, or an actual PC save folder."
+    }
+    return $selected
+}
+
+function Get-OccupiedQuestSlots([string]$Adb, [string[]]$DeviceArguments) {
+    for ($slot = 1; $slot -le 8; $slot++) {
+        $output = & $Adb @DeviceArguments shell content query --uri "content://com.miamivr.quest.saves/slot/$slot" --projection _size 2>&1
+        $response = $output -join "`n"
+        if ($LASTEXITCODE -ne 0 -or $response -notmatch '(?m)^Row: \d+ _size=(\d+)\s*$') {
+            throw "Cannot read Quest slot $slot. Check that standalone Vice City VR is installed and supports save transfer. Update the standalone app if necessary. ADB said: $response"
+        }
+        $size = [int64]$Matches[1]
+        if ($size -gt 0) {
+            Write-Host "  Quest slot ${slot}: $size bytes"
+            $slot
+        }
+    }
 }
 
 function Assert-OfficialDownloadedAdb([string]$Path) {
@@ -146,21 +191,25 @@ try {
     Start-Transcript -LiteralPath $LogPath -Force | Out-Null
     $script:transcriptStarted = $true
     Write-Host "===============================================================" -ForegroundColor Cyan
-    Write-Host " VICE CITY VR - COPY ALL PC SAVES TO QUEST" -ForegroundColor Cyan
+    Write-Host " VICE CITY VR - SAVE TRANSFER: $Direction" -ForegroundColor Cyan
     Write-Host "===============================================================" -ForegroundColor Cyan
-    Write-Host "This converts compatible Win64 Vice City VR saves, backs up any Quest slots that will be replaced, and verifies every written slot."
+    Write-Host "This converts compatible Vice City VR saves, backs up destination slots before replacing them, and verifies each written slot."
     Write-Host "Close Vice City VR on both PC and Quest. Connect the Quest by USB and accept the USB debugging prompt inside the headset." -ForegroundColor Yellow
 
     $transferScript = Join-Path $PSScriptRoot "saves\transfer-vr-save.ps1"
     if (-not (Test-Path -LiteralPath $transferScript -PathType Leaf)) {
         throw "Required transfer engine is missing: $transferScript"
     }
-    $pcSaveDirectory = Resolve-PcSaveDirectory $PcGameDirectory
+    if ($exportToPc) {
+        $pcSaveDirectory = Resolve-PcExportDirectory $PcGameDirectory
+    } else {
+        $pcSaveDirectory = Resolve-PcSaveDirectory $PcGameDirectory
+    }
     $adb = Resolve-OrInstall-Adb $AdbPath
 
-    Write-Heading "PC saves found in: $pcSaveDirectory"
+    Write-Heading "PC save folder: $pcSaveDirectory"
     $slots = [System.Collections.Generic.List[int]]::new()
-    for ($slot = 1; $slot -le 8; $slot++) {
+    for ($slot = 1; -not $exportToPc -and $slot -le 8; $slot++) {
         $save = Join-Path $pcSaveDirectory "GTAVCsf$slot.b"
         if (Test-Path -LiteralPath $save -PathType Leaf) {
             $slots.Add($slot)
@@ -168,7 +217,7 @@ try {
             Write-Host ("  Slot {0}: {1} bytes, {2}" -f $slot, $item.Length, $item.LastWriteTime)
         }
     }
-    if ($slots.Count -eq 0) { throw "No PC save slots were found." }
+    if (-not $exportToPc -and $slots.Count -eq 0) { throw "No PC save slots were found." }
 
     Write-Heading "Quest connection"
     $adbArguments = @()
@@ -179,10 +228,30 @@ try {
     }
     Write-Host "Authorized Quest detected." -ForegroundColor Green
 
+    if ($exportToPc) {
+        foreach ($occupied in @(Get-OccupiedQuestSlots $adb $adbArguments)) {
+            $slots.Add($occupied)
+            if (Test-Path -LiteralPath (Join-Path $pcSaveDirectory "GTAVCsf$occupied.b")) {
+                Write-Host "    PC slot $occupied will be backed up and replaced." -ForegroundColor Yellow
+            }
+        }
+        if ($slots.Count -eq 0) { throw "No occupied Quest save slots were found. Save your game on standalone first." }
+        Write-Host "Destination: $pcSaveDirectory" -ForegroundColor Yellow
+        Write-Host "If PCVR saves to Documents instead, cancel and select that save folder using -PcGameDirectory."
+    }
+
     Write-Host ""
-    $answer = Read-Host "Copy all listed PC slots to the Quest now? Existing Quest slots will be backed up first [Y/n]"
-    if (-not [string]::IsNullOrWhiteSpace($answer) -and $answer -notmatch '^[Yy]') {
+    $destination = if ($exportToPc) { "PC" } else { "Quest" }
+    $answer = Read-Host "Copy all listed slots to $destination now? Close both games first. Existing destination slots will be backed up [y/N]"
+    if ($answer -notmatch '^(?i)y(es)?$') {
         throw "Transfer cancelled by the user before any save was written."
+    }
+
+    if ($exportToPc) {
+        if (Get-Process -Name reVC -ErrorAction SilentlyContinue) {
+            throw "Close reVC before importing saves to PC, then run the wizard again."
+        }
+        New-Item -ItemType Directory -Path $pcSaveDirectory -Force | Out-Null
     }
 
     $childPowerShell = Join-Path $env:SystemRoot `
@@ -194,7 +263,7 @@ try {
         Write-Heading "Transferring slot $slot of $($slots.Count)"
         $arguments = @(
             "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $transferScript,
-            "-Mode", "Import", "-Slot", $slot,
+            "-Mode", $(if ($exportToPc) { "Export" } else { "Import" }), "-Slot", $slot,
             "-PcSaveDirectory", $pcSaveDirectory, "-AdbPath", $adb
         )
         if (-not [string]::IsNullOrWhiteSpace($Serial)) { $arguments += @("-Serial", $Serial) }
@@ -205,9 +274,13 @@ try {
     }
 
     Write-Host ""
-    Write-Host "SUCCESS: all $($slots.Count) PC save slot(s) were converted, copied and verified on the Quest." -ForegroundColor Green
-    Write-Host "Quest backups were created by the transfer engine before replacing occupied slots."
-    Write-Host "You can disconnect USB and start Vice City VR on the headset."
+    Write-Host "SUCCESS: all $($slots.Count) save slot(s) were converted, copied and verified on $destination." -ForegroundColor Green
+    Write-Host "Backups of replaced slots: $pcSaveDirectory\MiamiVR-save-backups"
+    if ($exportToPc) {
+        Write-Host "Quest saves were not replaced. Start PCVR and load the transferred slot."
+    } else {
+        Write-Host "You can disconnect USB and start Vice City VR on the headset."
+    }
     Write-Host "Diagnostic log: $LogPath"
     exit 0
 } catch {

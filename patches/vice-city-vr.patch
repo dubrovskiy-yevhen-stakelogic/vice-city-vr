@@ -11536,7 +11536,7 @@ index f199e53..18b4795 100644
 \ No newline at end of file
 +};
 diff --git a/src/peds/Ped.cpp b/src/peds/Ped.cpp
-index ba09e8a..275af60 100644
+index ba09e8a..1d59fe0 100644
 --- a/src/peds/Ped.cpp
 +++ b/src/peds/Ped.cpp
 @@ -6,6 +6,7 @@
@@ -11572,7 +11572,29 @@ index ba09e8a..275af60 100644
  #ifdef USE_CUTSCENE_SHADOW_FOR_PED
  	if ( m_pRTShadow ) delete m_pRTShadow;
  #endif
-@@ -1411,7 +1418,14 @@ CPed::CalculateNewVelocity(void)
+@@ -830,6 +837,21 @@ CPed::ScanForThreats(void)
+ 		}
+ 	}
+ 
++#ifdef GTA_VR_OPENXR
++	// Match Quest: a visible held gun is a threat before a shot is fired.
++	// Reuse the native civilian/gang threat response and its existing timing.
++	if(fearFlags & PED_FLAG_GUN){
++		CPed *aiming = CheckForAimedGun();
++		if(aiming){
++			if(m_threatEntity)
++				m_threatEntity->CleanUpOldReference(&m_threatEntity);
++			m_threatEntity = aiming;
++			m_threatEntity->RegisterReference((CEntity**)&m_threatEntity);
++			return PED_FLAG_GUN;
++		}
++	}
++#endif
++
+ 	CPed *deadPed;
+ 	if (fearFlags & PED_FLAG_DEADPEDS && CharCreatedBy != MISSION_CHAR
+ 		&& (deadPed = CheckForDeadPeds()) != nil && (deadPed->GetPosition() - ourPos).MagnitudeSqr() < sq(20.0f)
+@@ -1411,7 +1433,14 @@ CPed::CalculateNewVelocity(void)
  		return;
  	}
  
@@ -11588,7 +11610,7 @@ index ba09e8a..275af60 100644
  	float pedSpeed = m_moved.Magnitude();
  	float localWalkAngle = CGeneral::LimitRadianAngle(walkAngle - m_fRotationCur);
  
-@@ -4738,6 +4752,7 @@ CPed::PreRender(void)
+@@ -4738,6 +4767,7 @@ CPed::PreRender(void)
  	UpdateRpHAnim();
  
  	bool bIsWindModifierTurnedOn = false;
@@ -11596,7 +11618,7 @@ index ba09e8a..275af60 100644
  	float fAnyDirectionShift = 1.0f;
  	bool bIsPedDrivingBikeOrOpenTopCar = false;
  	if (IsPlayer() && CWindModifiers::FindWindModifier(GetPosition(), &fAnyDirectionShift, &fAnyDirectionShift)
-@@ -4964,6 +4979,9 @@ CVector vecTestTemp(-1.0f, -1.0f, -1.0f);
+@@ -4964,6 +4994,9 @@ CVector vecTestTemp(-1.0f, -1.0f, -1.0f);
  void
  CPed::Render(void)
  {
@@ -11606,7 +11628,7 @@ index ba09e8a..275af60 100644
  	if (bInVehicle && m_pMyVehicle && m_nPedState != PED_EXIT_CAR && m_nPedState != PED_DRAG_FROM_CAR) {
  		if (!bRenderPedInCar)
  			return;
-@@ -4975,16 +4993,35 @@ CPed::Render(void)
+@@ -4975,16 +5008,35 @@ CPed::Render(void)
  		}
  	}
  
@@ -11646,7 +11668,7 @@ index ba09e8a..275af60 100644
  		if (IsPlayer()) {
  			CPlayerPed *player = (CPlayerPed*)this;
  			if (player->m_pMinigunTopAtomic) {
-@@ -5004,7 +5041,7 @@ CPed::Render(void)
+@@ -5004,7 +5056,7 @@ CPed::Render(void)
  				mgTopMat.UpdateRW();
  
  				RwFrameUpdateObjects(frame);
@@ -11655,7 +11677,7 @@ index ba09e8a..275af60 100644
  			}
  		}
  	}
-@@ -5112,6 +5149,9 @@ CPed::SetFall(int extraTime, AnimationId animId, uint8 evenIfNotInControl)
+@@ -5112,6 +5164,9 @@ CPed::SetFall(int extraTime, AnimationId animId, uint8 evenIfNotInControl)
  	ClearAimFlag();
  	SetStoredState();
  	SetPedState(PED_FALL);
@@ -11665,7 +11687,7 @@ index ba09e8a..275af60 100644
  	CAnimBlendAssociation *fallAssoc = nil;
  	if (animId == ANIM_STD_NUM) {
  		if (IsPlayer()) {
-@@ -7011,6 +7051,8 @@ CPed::SetDie(AnimationId animId, float delta, float speed)
+@@ -7011,6 +7066,8 @@ CPed::SetDie(AnimationId animId, float delta, float speed)
  	}
  
  	SetPedState(PED_DIE);
@@ -11674,7 +11696,54 @@ index ba09e8a..275af60 100644
  	if (animId == ANIM_STD_NUM) {
  		bIsPedDieAnimPlaying = false;
  	} else {
-@@ -9168,7 +9210,16 @@ CPed::FinishLaunchCB(CAnimBlendAssociation *animAssoc, void *arg)
+@@ -7586,6 +7643,46 @@ CPed::CheckForExplosions(CVector2D &area)
+ 	return false;
+ }
+ 
++#ifdef GTA_VR_OPENXR
++CPed *
++CPed::CheckForAimedGun(void)
++{
++	CVector source, direction;
++	if (!OculusVR::GetHeldTrackedWeaponAim(&source, &direction))
++		return nil;
++
++	CPlayerPed *player = FindPlayerPed();
++	if (player == nil || player == this || player->DyingOrDead())
++		return nil;
++
++	// A ped origin already sits at chest height, FEET_OFFSET above the
++	// ground, so the body is the metre or so around it.
++	CVector toUs = GetPosition() - source;
++	const float along = DotProduct(toUs, direction);
++	if (along < 0.5f || along > 25.0f)
++		return nil;
++	// How far the barrel misses by, in metres rather than degrees: a
++	// wave of the hand should not pick someone out down the street, but
++	// across a pavement the whole body counts. Wide enough to cover a
++	// torso, tall enough to cover the rest of the ped.
++	const CVector miss = toUs - along*direction;
++	if (miss.x*miss.x + miss.y*miss.y > sq(0.5f) || Abs(miss.z) > 0.8f)
++		return nil;
++
++	// And the ped has to be facing us. Nobody is frightened by a barrel at
++	// their back, and a ped's own view cone is all the seeing this
++	// needs before the line of sight is worth paying for.
++	CVector2D toPlayer = CVector2D(source) - CVector2D(GetPosition());
++	toPlayer.Normalise();
++	if (DotProduct2D(toPlayer, CVector2D(GetForward())) < 0.5f)
++		return nil;
++
++	if (!OurPedCanSeeThisOne(player, true))
++		return nil;
++	return player;
++}
++#endif
++
+ CPed *
+ CPed::CheckForGunShots(void)
+ {
+@@ -9168,7 +9265,16 @@ CPed::FinishLaunchCB(CAnimBlendAssociation *animAssoc, void *arg)
  #else
  		if (TheCamera.Cams[0].Using3rdPersonMouseCam()) {
  #endif
@@ -11693,10 +11762,20 @@ index ba09e8a..275af60 100644
  			ped->m_vecMoveSpeed.y = velocityFromAnim * Cos(fpsAngle);
  		} else {
 diff --git a/src/peds/Ped.h b/src/peds/Ped.h
-index c94cd32..54bf44a 100644
+index c94cd32..8139605 100644
 --- a/src/peds/Ped.h
 +++ b/src/peds/Ped.h
-@@ -746,7 +746,8 @@ public:
+@@ -734,6 +734,9 @@ public:
+ 	CPed *CheckForDeadPeds(void);
+ 	bool CheckForExplosions(CVector2D &area);
+ 	CPed *CheckForGunShots(void);
++#ifdef GTA_VR_OPENXR
++	CPed *CheckForAimedGun(void);
++#endif
+ 	uint8 CheckForPointBlankPeds(CPed*);
+ 	bool CheckIfInTheAir(void);
+ 	void ClearAll(void);
+@@ -746,7 +749,8 @@ public:
  	void ClearAttackByRemovingAnim(void);
  	void SetStoredState(void);
  	void StopNonPartialAnims(void);

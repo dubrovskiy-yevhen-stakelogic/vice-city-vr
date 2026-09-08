@@ -10,7 +10,7 @@
     "patches":  [
                     {
                         "path":  "vice-city-vr.patch",
-                        "sha256":  "0db1b09654a6fe5382e197e7df11f2379b5fa890235b039c5345f4b21def862e",
+                        "sha256":  "f6f013602a2ad90c76561958cbfddc7831f4153a0cfa586027fa0588f755dae8",
                         "targets":  [
                                         {
                                             "path":  "CMakeLists.txt",
@@ -350,12 +350,12 @@
                                         {
                                             "path":  "src/peds/Ped.cpp",
                                             "preimageSha256":  "710cd5a0662682b087c8310447f9f65817962b3f657c11ae0335c473309627a4",
-                                            "postimageSha256":  "47e5048015ba243f556d822783ce010ffb70d6ad9400e6e4c9bb57e6c367167e"
+                                            "postimageSha256":  "4049885fa0556424179b2bc00fff865efeaecc8b0ce174ec39100c76064628cc"
                                         },
                                         {
                                             "path":  "src/peds/Ped.h",
                                             "preimageSha256":  "aedcb5147453789f34be4f2a7052a20f22f144a2cd9503d74831215494ef66c3",
-                                            "postimageSha256":  "4c5ad2340422e279832a0020906c195967dd6e504122721bb73bbedf99536139"
+                                            "postimageSha256":  "824b9efbd0db1f3c9b7f13dbef5168c9327b84930e0c6bdf18e08c36e7fa3525"
                                         },
                                         {
                                             "path":  "src/peds/PedAI.cpp",
@@ -741,11 +741,11 @@
                     },
                     {
                         "path":  "src/vr/OculusVR.h",
-                        "sha256":  "cfb718a6c8d2976e1c9a8c998a71a8314155b87c3e088a4be4f862b7d376b8b4"
+                        "sha256":  "14758a89d30faf9af0036c074fbbd2fb573016293ae621b6a647d6bac0ab5280"
                     },
                     {
                         "path":  "src/vr/OpenXRVR.cpp",
-                        "sha256":  "4fd08be945421a3af484b3b8540a00a73b93873f15fdab3757b6d2296b1c363c"
+                        "sha256":  "86c49183b449590c06092c603fcab2927f12bca74c61f78c1ce7489587be15c1"
                     },
                     {
                         "path":  "src/vr/OpenXRWristHud.h",

@@ -1,5 +1,8 @@
 # Vice City VR patch-only source kit
 
+Player guides: [Control map](docs/CONTROL_MAP.md) |
+[Quest / PCVR save transfer](docs/SAVE_TRANSFER.md).
+
 Vice City VR brings the 2003 game to Windows x64 PCVR with a native Direct3D 12
 renderer and a full OpenXR VR gameplay and interface layer.
 
@@ -74,7 +77,8 @@ The [player quick start](docs/PLAYER_README.md) explains which archive to use.
   and optimized-vegetation support. Asset packs are supplied separately;
   changing a profile requires a restart.
 - **Built-in tools:** headset performance overlay and capture, desktop neural
-  rendering controls, and a PC-to-Quest save-transfer tool.
+  rendering controls, and bidirectional PCVR/Quest save-transfer tools
+  (see [save transfer](docs/SAVE_TRANSFER.md)).
 
 The new lighting, reflection and weather effects are optional, with a master
 switch and individual controls. Neural rendering is also opt-in: ordinary
@@ -83,6 +87,14 @@ runtime/model files and can be very expensive, especially at 2X/3X in VR;
 availability depends on hardware and runtime compatibility. See
 [DLSS 5 setup](docs/DLSS5_SETUP.md), [VR controls and settings](docs/VR_README.md)
 and [performance notes](docs/VR_PERFORMANCE.md).
+
+## Black cutscenes in the headset
+
+If mission cutscenes show on the monitor but are black in VR, close the game
+and run [CUTSCENE_MODE.bat](CUTSCENE_MODE.bat). Select your `reVC.exe` if asked,
+then choose **1 - STEREO**. Choose **2 - CINEMA SCREEN** to change back.
+The helper creates the setting and backs up an existing settings file.
+See [cutscene troubleshooting](docs/CUTSCENE_MODE.md) for details.
 
 ## Source-kit contents
 

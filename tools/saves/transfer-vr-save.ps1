@@ -381,7 +381,7 @@ function Get-QuestSlotSize {
 }
 
 function New-BackupDirectory {
-    $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    $timestamp = (Get-Date -Format "yyyyMMdd-HHmmss") + "-" + [Guid]::NewGuid().ToString("N")
     $path = Join-Path $script:pcDirectory "MiamiVR-save-backups\$timestamp-$($Mode.ToLowerInvariant())-slot$Slot"
     New-Item -ItemType Directory -Path $path -Force | Out-Null
     return $path
@@ -470,10 +470,19 @@ try {
         if (Test-Path -LiteralPath $pcSavePath -PathType Leaf) {
             $backupDirectory = New-BackupDirectory
             Write-Host "Backing up existing PC slot $Slot to $backupDirectory"
-            Copy-Item -LiteralPath $pcSavePath -Destination (Join-Path $backupDirectory $pcSaveName)
+            $pcBackupPath = Join-Path $backupDirectory $pcSaveName
+            Copy-Item -LiteralPath $pcSavePath -Destination $pcBackupPath
+            if ((Get-FileHash -LiteralPath $pcSavePath -Algorithm SHA256).Hash -ne
+                (Get-FileHash -LiteralPath $pcBackupPath -Algorithm SHA256).Hash) {
+                throw "PC backup verification failed. The destination save was not replaced."
+            }
         }
 
         Copy-Item -LiteralPath $convertedOutput -Destination $pcSavePath -Force
+        if ((Get-FileHash -LiteralPath $convertedOutput -Algorithm SHA256).Hash -ne
+            (Get-FileHash -LiteralPath $pcSavePath -Algorithm SHA256).Hash) {
+            throw "PC save verification failed after writing slot $Slot. Backups are under MiamiVR-save-backups."
+        }
         Write-Host "Export complete: Quest slot $Slot -> $pcSavePath" -ForegroundColor Green
     }
 } finally {
@@ -490,4 +499,3 @@ try {
         Remove-Item -LiteralPath $script:temporaryRoot -Recurse -Force
     }
 }
-

@@ -203,6 +203,7 @@ enum eVrMainMenuItem
 	VR_MAIN_MODEL_SET,
 	VR_MAIN_TRAFFIC_SETTINGS,
 	VR_MAIN_HUD,
+	VR_MAIN_CONTROLS,
 	VR_MAIN_HANDS,
 	VR_MAIN_LASER,
 	VR_MAIN_WEAPON_HAPTICS,
@@ -374,7 +375,6 @@ enum eVrLocomotionMenuItem
 	VR_LOCOMOTION_SNAP_ANGLE,
 	VR_LOCOMOTION_HEAD_BOBBING,
 	VR_LOCOMOTION_CUTSCENES,
-	VR_LOCOMOTION_CONTROLS,
 	VR_LOCOMOTION_BACK,
 	VR_LOCOMOTION_MENU_ITEM_COUNT
 };
@@ -607,7 +607,7 @@ bool gHolsterHeadForwardValid;
 // the old implicit one-position-per-slot layout. Configurable values are Vice
 // City inventory slots, or -1 for an empty point.
 int gHolsterPointWeaponSlot[HOLSTER_POINT_COUNT] = {
-	WEAPONSLOT_SNIPER, WEAPONSLOT_SUBMACHINEGUN,
+	WEAPONSLOT_HANDGUN, WEAPONSLOT_SUBMACHINEGUN,
 	WEAPONSLOT_SHOTGUN, WEAPONSLOT_MELEE,
 	WEAPONSLOT_PROJECTILE, WEAPONSLOT_HEAVY, WEAPONSLOT_RIFLE
 };
@@ -2610,7 +2610,7 @@ void LoadVrSettings()
 		"CarTrafficPercent", defaultCarTrafficPercent, path), 50), 300);
 	ApplyTrafficSettings();
 	const int defaultHolsterSlots[HOLSTER_POINT_COUNT] = {
-		WEAPONSLOT_SNIPER, WEAPONSLOT_SUBMACHINEGUN,
+		WEAPONSLOT_HANDGUN, WEAPONSLOT_SUBMACHINEGUN,
 		WEAPONSLOT_SHOTGUN, WEAPONSLOT_MELEE,
 		WEAPONSLOT_PROJECTILE, WEAPONSLOT_HEAVY, WEAPONSLOT_RIFLE
 	};
@@ -6278,7 +6278,7 @@ void DrawVrControlsMenu()
 	sprintf(rows[VR_CONTROLS_LOOK_BEHIND], "R3 VEHICLE LOOK BEHIND  < %s >", gStickLookBehind ? "ON" : "OFF");
 	sprintf(rows[VR_CONTROLS_CROUCH], "DEFAULT L3 CROUCH  < %s >", gStickCrouch ? "ON" : "OFF");
 	strcpy(rows[VR_CONTROLS_RESET], "RESET BINDINGS TO DEFAULTS");
-	strcpy(rows[VR_CONTROLS_BACK], "BACK TO LOCOMOTION");
+	strcpy(rows[VR_CONTROLS_BACK], "BACK TO SETTINGS");
 	for(int item = 0; item < VR_CONTROLS_ITEM_COUNT; item++){
 		const int y = 184+item*35;
 		const bool selected = item == gVrControlsMenuSelection;
@@ -6315,6 +6315,9 @@ bool GetVrMainMenuCategoryColour(int item, bool selected,
 		break;
 	case VR_MAIN_LOCOMOTION_SETTINGS:
 		*red = 165; *green = 145; *blue = 255;
+		break;
+	case VR_MAIN_CONTROLS:
+		*red = 255; *green = 170; *blue = 95;
 		break;
 	case VR_MAIN_CHEATS:
 		*red = 255; *green = 120; *blue = 105;
@@ -7514,7 +7517,7 @@ bool UpdateVrMenuSwapchain()
 		DrawVrMenuText(page, VR_MENU_WIDTH/2, 674, 2, 170, 190, 210);
 		DrawVrMenuText("LEFT STICK SELECT   L2 MINUS   R2 OR A PLUS   B BACK",
 			VR_MENU_WIDTH/2, 718, 2, 170, 190, 210);
-	}else if(gVrLocomotionMenuVisible && gVrControlsMenuVisible){
+	}else if(gVrControlsMenuVisible){
 		DrawVrControlsMenu();
 	}else if(gVrLocomotionMenuVisible){
 		DrawVrMenuText("LOCOMOTION", VR_MENU_WIDTH/2, 112, 5,
@@ -7553,7 +7556,6 @@ bool UpdateVrMenuSwapchain()
 			"HEAD BOBBING  < %s >", gHeadBobbingEnabled ? "ON" : "OFF");
 		sprintf(rows[VR_LOCOMOTION_CUTSCENES], "CUTSCENES  < %s >",
 			gCutsceneMode ? "STEREO - R3 CAMERA / L3 SAVE" : "CINEMA SCREEN");
-		strcpy(rows[VR_LOCOMOTION_CONTROLS], "CONTROLS  < OPEN >");
 		strcpy(rows[VR_LOCOMOTION_BACK], "BACK TO SETTINGS");
 		for(int item = 0; item < VR_LOCOMOTION_MENU_ITEM_COUNT; item++){
 			const int y = 176+item*40;
@@ -7578,6 +7580,7 @@ bool UpdateVrMenuSwapchain()
 		ModelSets::IsRestartRequired() ? " - RESTART" : "");
 	strcpy(rows[VR_MAIN_TRAFFIC_SETTINGS], "TRAFFIC SETTINGS  < OPEN >");
 	strcpy(rows[VR_MAIN_HUD], "HUD SETTINGS  < OPEN >");
+	strcpy(rows[VR_MAIN_CONTROLS], "CONTROLS  < OPEN >");
 	sprintf(rows[VR_MAIN_HANDS], "VR HANDS  < %s >",
 		gVrHandsEnabled ? "ON" : "OFF");
 	sprintf(rows[VR_MAIN_LASER], "WEAPON LASER  < %s >",
@@ -12420,7 +12423,7 @@ static int WrapWeaponRotation(int degrees)
 
 void ChangeVrMenuValue(int direction)
 {
-	if(gVrLocomotionMenuVisible && gVrControlsMenuVisible){
+	if(gVrControlsMenuVisible){
 		const int source = gVrControlsMenuSelection-VR_CONTROLS_FIRST_SOURCE;
 		if(source >= 0 && source < VrPadBindings::SOURCE_COUNT){
 			int target = gVrPadBindings.target[source];
@@ -12443,7 +12446,7 @@ void ChangeVrMenuValue(int direction)
 			SaveVrSetting("StickCrouch", gStickCrouch);
 		}else if(gVrControlsMenuSelection == VR_CONTROLS_BACK){
 			gVrControlsMenuVisible = false;
-			gVrLocomotionMenuSelection = VR_LOCOMOTION_CONTROLS;
+			gVrMenuSelection = VR_MAIN_CONTROLS;
 		}
 		return;
 	}
@@ -13690,10 +13693,6 @@ void ChangeVrMenuValue(int direction)
 			gRecenterRequested = true;
 			ResetTemporalAaHistory();
 			break;
-		case VR_LOCOMOTION_CONTROLS:
-			gVrControlsMenuVisible = true;
-			gVrControlsMenuSelection = 0;
-			break;
 		case VR_LOCOMOTION_BACK:
 			gVrLocomotionMenuVisible = false;
 			break;
@@ -13811,9 +13810,10 @@ void ChangeVrMenuValue(int direction)
 		gVrLocomotionMenuVisible = false;
 		gVrVehicleMenuSelection = 0;
 		break;
+	case VR_MAIN_CONTROLS:
 	case VR_MAIN_LOCOMOTION_SETTINGS:
-		gVrLocomotionMenuVisible = true;
-		gVrControlsMenuVisible = false;
+		gVrControlsMenuVisible = gVrMenuSelection == VR_MAIN_CONTROLS;
+		gVrLocomotionMenuVisible = !gVrControlsMenuVisible;
 		gVrGraphicsMenuVisible = false;
 		gVrModelMenuVisible = false;
 		gVrTrafficMenuVisible = false;
@@ -13823,6 +13823,7 @@ void ChangeVrMenuValue(int direction)
 		gVrHolsterMenuVisible = false;
 		gVrBikeCalibrationMenuVisible = false;
 		gVrLocomotionMenuSelection = 0;
+		gVrControlsMenuSelection = 0;
 		break;
 	case VR_MAIN_CHEATS:
 		gCheatMenuVisible = true;
@@ -13900,7 +13901,7 @@ void ChangeVrMenuValue(int direction)
 
 bool IsVrMenuValueRepeatable()
 {
-	if(gVrLocomotionMenuVisible && gVrControlsMenuVisible)
+	if(gVrControlsMenuVisible)
 		return false;
 	if(gVrModelMenuVisible)
 		return false;
@@ -14068,9 +14069,12 @@ void HandleVrMenuInput(const XrVector2f &stick, bool decrease, bool increase,
 	}else if(gVrVehicleMenuVisible){
 		selection = &gVrVehicleMenuSelection;
 		itemCount = VR_VEHICLE_MENU_ITEM_COUNT;
+	}else if(gVrControlsMenuVisible){
+		selection = &gVrControlsMenuSelection;
+		itemCount = VR_CONTROLS_ITEM_COUNT;
 	}else if(gVrLocomotionMenuVisible){
-		selection = gVrControlsMenuVisible ? &gVrControlsMenuSelection : &gVrLocomotionMenuSelection;
-		itemCount = gVrControlsMenuVisible ? VR_CONTROLS_ITEM_COUNT : VR_LOCOMOTION_MENU_ITEM_COUNT;
+		selection = &gVrLocomotionMenuSelection;
+		itemCount = VR_LOCOMOTION_MENU_ITEM_COUNT;
 	}else{
 		selection = &gVrMenuSelection;
 		itemCount = VR_MENU_ITEM_COUNT;
@@ -14109,10 +14113,12 @@ void HandleVrMenuInput(const XrVector2f &stick, bool decrease, bool increase,
 		!gVrHudMenuVisible &&
 		!gVrVehicleMenuVisible &&
 		!gVrLocomotionMenuVisible &&
+		!gVrControlsMenuVisible &&
 		(gVrMenuSelection == VR_MAIN_GRAPHICS ||
 		 gVrMenuSelection == VR_MAIN_MODEL_SET ||
 		 gVrMenuSelection == VR_MAIN_TRAFFIC_SETTINGS ||
 		 gVrMenuSelection == VR_MAIN_HUD ||
+		 gVrMenuSelection == VR_MAIN_CONTROLS ||
 		 gVrMenuSelection == VR_MAIN_CALIBRATION ||
 		 gVrMenuSelection == VR_MAIN_HOLSTERS ||
 		 gVrMenuSelection == VR_MAIN_CHEATS ||
@@ -14130,7 +14136,7 @@ void HandleVrMenuInput(const XrVector2f &stick, bool decrease, bool increase,
 	    gVrHolsterMenuVisible ||
 	    gVrCalibrationMenuVisible || gVrHudMenuVisible ||
 	    gVrVehicleMenuVisible ||
-	    gVrLocomotionMenuVisible || mainAction))
+	    gVrLocomotionMenuVisible || gVrControlsMenuVisible || mainAction))
 		ChangeVrMenuValue(1);
 	if(back && !gVrMenuBackDown){
 		if(gVrDlssTuningMenuVisible){
@@ -14174,13 +14180,11 @@ void HandleVrMenuInput(const XrVector2f &stick, bool decrease, bool increase,
 		}
 		else if(gVrVehicleMenuVisible)
 			gVrVehicleMenuVisible = false;
-		else if(gVrLocomotionMenuVisible){
-			if(gVrControlsMenuVisible){
-				gVrControlsMenuVisible = false;
-				gVrLocomotionMenuSelection = VR_LOCOMOTION_CONTROLS;
-			}else
-				gVrLocomotionMenuVisible = false;
-		}
+		else if(gVrControlsMenuVisible){
+			gVrControlsMenuVisible = false;
+			gVrMenuSelection = VR_MAIN_CONTROLS;
+		}else if(gVrLocomotionMenuVisible)
+			gVrLocomotionMenuVisible = false;
 		else
 			gVrMenuVisible = false;
 	}
@@ -14312,6 +14316,7 @@ void HandleCheatMenuInput(const XrVector2f &stick, bool select, bool back)
 
 void ToggleCheatMenu()
 {
+	gVrControlsMenuVisible = false;
 	gCheatMenuVisible = !gCheatMenuVisible;
 	gCheatMenuOpenedFromVrMenu = false;
 	gVrMissionMenuVisible = false;
@@ -15984,6 +15989,7 @@ bool ApplyTouchInput(CControllerState *state)
 	const bool vrMenuToggled=gVrMenuInputRouting.ToggleRequested(
 		legacyVrMenuShortcut, alternateVrMenuShortcut, menu, x, leftStickClick);
 	if(vrMenuToggled){
+		gVrControlsMenuVisible = false;
 		gVrMenuVisible=!gVrMenuVisible;
 		gVrGraphicsMenuVisible=false;
 		gVrDlssTuningMenuVisible=false;
@@ -16042,6 +16048,7 @@ bool ApplyTouchInput(CControllerState *state)
 		debug("[OpenXR] DLSS 5 A/B: %s\n", showModel ?
 			Dlaa::GetNeuralRenderingModeName() : "DLAA BASELINE");
 	}else if(cheatMenuToggled){
+		gVrControlsMenuVisible = false;
 		gCheatMenuVisible=!gCheatMenuVisible;
 		gCheatMenuOpenedFromVrMenu=false;
 		gVrMissionMenuVisible=false;
@@ -18056,6 +18063,47 @@ bool GetTrackedWeaponAim(int hand, int weaponType, CVector *source, CVector *dir
 	gTrackedAimCacheWeaponType[hand] = weaponType;
 	gTrackedAimCacheSource[hand] = *source;
 	gTrackedAimCacheDirection[hand] = *direction;
+	return true;
+}
+
+// Quest-compatible threat scan: choose the first held firearm, without firing.
+// All peds share one ray per simulation frame, using the render-prepared aim
+// snapshot also used by shots. Never resurrect a pose across a cinema/load gap.
+bool GetHeldTrackedWeaponAim(CVector *source, CVector *direction)
+{
+	if(!source || !direction || !gSessionRunning ||
+	   !IsTrackedScopeGameplaySafe() || TheCamera.m_WideScreenOn)
+		return false;
+	static uint32 computedFrame = ~0u;
+	static bool held;
+	static CVector heldSource, heldDirection;
+	const uint32 frame = CTimer::GetFrameCounter();
+	if(frame != computedFrame){
+		computedFrame = frame;
+		held = false;
+		CPlayerPed *player = FindPlayerPed();
+		for(int hand = 0; player && hand < EYE_COUNT && !held; hand++){
+			if(!IsTrackedWeaponHeld(hand) || !gTrackedHandAimPoseValid[hand] ||
+			   !gTrackedAimCacheValid[hand] ||
+			   frame-gTrackedAimCacheFrame[hand] > 1U)
+				continue;
+			const int slot = GetHeldWeaponSlot(hand);
+			if(slot < 0 || slot >= TOTAL_WEAPON_SLOTS || !player->HasWeaponSlot(slot))
+				continue;
+			const int type = player->GetWeapon(slot).m_eWeaponType;
+			if(!IsPhysicalGunType(type) || type == WEAPONTYPE_CAMERA ||
+			   !GetTrackedWeaponAim(hand, type, &heldSource, &heldDirection))
+				continue;
+			if(heldDirection.MagnitudeSqr() < 0.000001f)
+				continue;
+			heldDirection.Normalise();
+			held = true;
+		}
+	}
+	if(!held)
+		return false;
+	*source = heldSource;
+	*direction = heldDirection;
 	return true;
 }
 

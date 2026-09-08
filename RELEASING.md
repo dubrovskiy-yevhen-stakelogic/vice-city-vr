@@ -96,7 +96,14 @@ external download URL immediately before publication. Do not include a built
 game executable, runtime DLLs, model packs, game files, or locally downloaded
 archives in the source release.
 
+For the separate PCVR player package, include `CUTSCENE_MODE.bat` beside
+`reVC.exe` and `docs/CUTSCENE_MODE.md` with the player documentation. The BAT is
+self-contained and can also be distributed as a small support download without
+replacing the game executable or a player's settings. Keep cutscene mode opt-in;
+the log's successful frame submission does not detect a black headset image.
+
 ## 5. Publish from clean history
+
 
 The release repository history must contain only audited patch-kit files. A
 working-tree conversion does not remove complete upstream snapshots or binaries

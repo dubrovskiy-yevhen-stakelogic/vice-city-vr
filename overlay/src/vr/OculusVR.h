@@ -204,6 +204,9 @@ bool IsTrackedWeaponSupportFromBelow(int primaryHand, int weaponType);
 bool GetTrackedWeaponSupportAnchor(int primaryHand, int weaponType,
 	CVector *position, bool *engaged = nil);
 bool GetTrackedWeaponAim(int hand, int weaponType, CVector *source, CVector *direction);
+#ifdef GTA_VR_OPENXR
+bool GetHeldTrackedWeaponAim(CVector *source, CVector *direction);
+#endif
 bool GetTrackedThrowableLaunch(int hand, int weaponType, CVector *source,
 	CVector *velocity);
 void SetTrackedThrowablePreviewActive(int hand, bool active);
