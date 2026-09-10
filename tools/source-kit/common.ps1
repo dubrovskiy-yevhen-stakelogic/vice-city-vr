@@ -84,6 +84,12 @@ function Get-KitRoot {
     return Get-CanonicalDirectoryPath -Path (Split-Path -Parent $toolsDirectory)
 }
 
+function Test-KitVersion {
+    param([AllowEmptyString()][string]$Version)
+
+    return $Version -cmatch '\A[0-9]+\.[0-9]+\.[0-9]+(?:\.[0-9]+)?(?:[-+][0-9A-Za-z.-]+)?\z'
+}
+
 function Read-PatchManifest {
     param([Parameter(Mandatory = $true)][string]$KitRoot)
 
@@ -107,8 +113,7 @@ function Read-PatchManifest {
     if ([int]$manifest.schemaVersion -ne 1) {
         throw "Unsupported patch manifest schema: $($manifest.schemaVersion)"
     }
-    if ([string]$manifest.kitVersion -notmatch
-        '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
+    if (-not (Test-KitVersion -Version ([string]$manifest.kitVersion))) {
         throw "Invalid source-kit version: $($manifest.kitVersion)"
     }
     foreach ($name in @('repository', 'branch', 'commit', 'tree')) {

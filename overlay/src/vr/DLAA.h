@@ -45,14 +45,32 @@ const char *GetNeuralRenderingModeName(int mode);
 // the final neural pass.
 void SetNeuralRenderingPassCount(int passes);
 int GetNeuralRenderingPassCount();
+// VR-only approximation: 0 evaluates both eyes, 1 shares the left-eye residual.
+void SetNeuralRenderingStereoMode(int mode);
+int GetNeuralRenderingStereoMode();
+const char *GetNeuralRenderingStereoModeName();
+// VR-only fixed central NR region; peripheral pixels retain the baseline.
+// 0 = off, 1 = quality, 2 = balanced, 3 = performance.
+void SetNeuralRenderingFoveationMode(int mode);
+int GetNeuralRenderingFoveationMode();
+const char *GetNeuralRenderingFoveationModeName();
+bool HasNeuralFoveationFailed();
+// VR-only NR proxy scale, independent of scene resolution and foveation.
+// 0 = full, 1 = 75%, 2 = 67%, 3 = 50%; full bypasses proxy reconstruction.
+void SetNeuralRenderingModelScaleMode(int mode);
+int GetNeuralRenderingModelScaleMode();
+const char *GetNeuralRenderingModelScaleModeName();
+bool HasNeuralModelScaleFailed();
+// Called with both current eye inputs before either eye is evaluated.
+bool PrepareNeuralStereoPair(const EyeInput &left, const EyeInput &right,
+	float rasterJitterX, float rasterJitterY);
+bool HasNeuralStereoSharingFailed();
+// Reject the complete pair if reconstruction or presentation of either eye fails.
+void RejectNeuralStereoPair();
 // True once after the desktop F11 panel changes the pass count.
 bool ConsumeNeuralRenderingPassCountChanged();
 
-// Full-frame neural work scale. Feature 18 remains 1:1 at every setting;
-// Quality/Balanced/Performance reduce the complete game render and neural
-// target, then DLSS SR reconstructs the headset presentation resolution.
-void SetNeuralRenderingRegionMode(int mode);
-int GetNeuralRenderingRegionMode();
+// Diagnostic names for the scene resolution; NR uses full-resolution DLAA.
 const char *GetNeuralRenderingRegionModeName();
 const char *GetNeuralRenderingRegionModeName(int mode);
 

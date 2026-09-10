@@ -146,7 +146,7 @@ function Get-DlssDownload($Package, [string]$CacheDir) {
     $handler.AllowAutoRedirect = $false
     $client = New-Object Net.Http.HttpClient($handler)
     $client.Timeout = [TimeSpan]::FromMinutes(10)
-    $client.DefaultRequestHeaders.UserAgent.ParseAdd('ViceCityVR-Setup/0.5.5')
+    $client.DefaultRequestHeaders.UserAgent.ParseAdd('ViceCityVR-Setup/0.5.5.1')
     $response = $null
     $output = $null
     $inputStream = $null

@@ -10,7 +10,7 @@ namespace Dlaa
 inline bool CopyNeuralColorInput(ID3D12GraphicsCommandList *list,
 	ID3D12Resource *source, ID3D12Resource *destination,
 	D3D12_RESOURCE_STATES &destinationState,
-	UINT sourceLeft, UINT width, UINT height)
+	UINT sourceLeft, UINT width, UINT height, UINT sourceTop = 0)
 {
 	if(!list || !source || !destination || source == destination ||
 	   width == 0 || height == 0)
@@ -20,7 +20,7 @@ inline bool CopyNeuralColorInput(ID3D12GraphicsCommandList *list,
 	if(src.Dimension != D3D12_RESOURCE_DIMENSION_TEXTURE2D ||
 	   dst.Dimension != D3D12_RESOURCE_DIMENSION_TEXTURE2D ||
 	   src.SampleDesc.Count != 1 || dst.SampleDesc.Count != 1 ||
-	   (UINT64)sourceLeft+width > src.Width || height > src.Height ||
+	   (UINT64)sourceLeft+width > src.Width || (UINT64)sourceTop+height > src.Height ||
 	   dst.Width != width || dst.Height != height ||
 	   src.Format != dst.Format)
 		return false;
@@ -41,7 +41,7 @@ inline bool CopyNeuralColorInput(ID3D12GraphicsCommandList *list,
 	from.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
 	to.pResource = destination;
 	to.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-	const D3D12_BOX box = { sourceLeft, 0, 0, sourceLeft+width, height, 1 };
+	const D3D12_BOX box = { sourceLeft, sourceTop, 0, sourceLeft+width, sourceTop+height, 1 };
 	list->CopyTextureRegion(&to, 0, 0, 0, &from, &box);
 	barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
 	barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;

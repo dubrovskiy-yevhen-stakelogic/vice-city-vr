@@ -6,7 +6,7 @@ Player guides: [Control map](docs/CONTROL_MAP.md) |
 Vice City VR brings the 2003 game to Windows x64 PCVR with a native Direct3D 12
 renderer and a full OpenXR VR gameplay and interface layer.
 
-Source-kit version: `0.5.5-alpha-pc`.
+Source-kit version: `0.5.5.1-alpha-pc`.
 
 Community, support and feedback:
 [Discord](https://discord.com/channels/747967102895390741/1543691482861408276).
@@ -35,8 +35,12 @@ The [player quick start](docs/PLAYER_README.md) explains which archive to use.
   Quality, Balanced and Performance reconstruction; FXAA and FSR2 native AA
   are alternative choices.
 - **Experimental DLSS 5 Neural Rendering:** selectable model profiles, tuning,
-  1X/2X/3X passes, Full/Quality/Balanced/Performance work scales, and an instant
+  1X/2X/3X passes, and an instant
   selected-profile-versus-baseline comparison with an in-headset status notice.
+- **Lower-cost DLSS 5 in VR:** SHARED eye processing, fixed central foveation,
+  and Full/Quality/Balanced/Performance NR model scales. Scaling processes a
+  smaller model input and blends its neural changes onto the original detailed
+  scene, instead of shrinking and enlarging the whole game image.
 - **Temporal rendering inputs:** per-eye history and motion vectors for camera
   movement, moving vehicles and animated characters.
 - **Improved texture filtering:** generated mipmaps, alpha-coverage handling
@@ -87,6 +91,22 @@ runtime/model files and can be very expensive, especially at 2X/3X in VR;
 availability depends on hardware and runtime compatibility. See
 [DLSS 5 setup](docs/DLSS5_SETUP.md), [VR controls and settings](docs/VR_README.md)
 and [performance notes](docs/VR_PERFORMANCE.md).
+
+### DLSS 5 optimizations in 0.5.5.1
+
+- **SHARED** runs the neural pass chain once, then transfers its changes between
+  the stereo views using depth. **PER EYE** remains available.
+- **Foveation** limits neural processing to a feathered central area; the
+  peripheral image keeps its original scene detail.
+- **NR MODEL SCALE** reduces only the model input: FULL 100%, QUALITY 75%,
+  BALANCED 67%, or PERFORMANCE 50% per dimension. The old DLSS 5 scene/work-scale
+  control is removed. Ordinary DLAA/DLSS SR remains available with NR disabled.
+
+New settings use SHARED, QUALITY foveation, FULL model scale and 1X passes;
+DLSS 5 itself stays off until enabled. Existing optimization choices are kept.
+These modes can be combined to reduce neural-rendering cost, but are
+approximations: quality and speed depend on the scene, headset and GPU.
+See [setup and comparison instructions](docs/DLSS5_SETUP.md).
 
 ## Black cutscenes in the headset
 

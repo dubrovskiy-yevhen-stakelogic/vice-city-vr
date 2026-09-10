@@ -21,6 +21,9 @@
 
 #include "../../vendor/librw/src/d3d12/rwd3d12.h"
 #include "../../vendor/librw/src/d3d12/rwd3d12impl.h"
+#include "DlssNrStereoBackend.h"
+#include "DlssNrFoveationBackend.h"
+#include "DlssNrModelScaleBackend.h"
 
 namespace Dlaa
 {
@@ -132,6 +135,8 @@ struct EyeState
 	uint32 nrRegionTop;
 	uint32 nrRegionWidth;
 	uint32 nrRegionHeight;
+	uint32 nrModelWidth;
+	uint32 nrModelHeight;
 	int nrRegionMode;
 	int optionsMode;
 	bool optionsSet;
@@ -154,7 +159,8 @@ struct EyeState
 		nrInputState(D3D12_RESOURCE_STATE_COMMON),
 		motionState(D3D12_RESOURCE_STATE_COMMON), width(0), height(0),
 		outputWidth(0), outputHeight(0), nrRegionLeft(0), nrRegionTop(0),
-		nrRegionWidth(0), nrRegionHeight(0), nrRegionMode(0), optionsMode(-1),
+		nrRegionWidth(0), nrRegionHeight(0), nrModelWidth(0), nrModelHeight(0),
+		nrRegionMode(0), optionsMode(-1),
 		optionsSet(false), nrOptionsSetMask(0), nrEnabled(false),
 		nrPassCount(1), historyValid(false), dlssUsedNeuralInput(false)
 	{
@@ -187,6 +193,19 @@ sl::FrameToken *gFrameToken;
 float gJitterX;
 float gJitterY;
 EyeState gEye[SLOT_COUNT];
+SharedStereoBackend gSharedStereo;
+FoveationBackend gFoveation[EYE_COUNT];
+ModelScaleBackend gModelScale[EYE_COUNT];
+int gNrModelScaleMode;
+bool gNrModelScaleFailed;
+bool gNrModelScaleLogged;
+int gNrFoveationMode = 1;
+bool gNrFoveationFailed;
+bool gNrFoveationLogged;
+int gNrStereoMode = 1;
+bool gNrSharingFailed;
+bool gNrSharingLogged;
+uint32 gNrSharedUsedMask;
 ID3D12RootSignature *gMotionRootSignature;
 ID3D12PipelineState *gMotionPipeline;
 PFun_slDLSSNRSetOptions *gDlssNrSetOptions;
@@ -626,13 +645,14 @@ struct NrRegion
 NrRegion ResolveNrRegion(int eye, uint32 width, uint32 height,
 	uint32 outputWidth, uint32 outputHeight)
 {
-	(void)eye;
 	(void)outputWidth;
 	(void)outputHeight;
-	// Feature 18 is a 1:1 neural stage, not a spatial upscaler. Its resources
-	// cover the complete game render at the current DLSS work resolution; the
-	// following DLSS SR/DLAA evaluation reconstructs the presentation size.
-	NrRegion region = { 0, 0, width, height, gQualityMode };
+	const int foveation = eye < EYE_COUNT ? gNrFoveationMode : 0;
+	const int modelScale = eye < EYE_COUNT ? gNrModelScaleMode : 0;
+	const DlssNrFoveation::Region crop = DlssNrFoveation::Resolve(width, height, foveation);
+	// This region stays in scene pixels, independently of the NR proxy size.
+	NrRegion region = { crop.left, crop.top, crop.width, crop.height,
+		gQualityMode + 4 * foveation + 16 * modelScale };
 	return region;
 }
 
@@ -645,11 +665,18 @@ bool CreateEyeResources(int eye, uint32 width, uint32 height,
 	if(outputHeight < height) outputHeight = height;
 	const NrRegion nrRegion = ResolveNrRegion(eye, width, height,
 		outputWidth, outputHeight);
+	const bool scaledModel = eye < EYE_COUNT && gNrModelScaleMode > 0;
+	const DlssNrModelScale::Dimensions modelSize = DlssNrModelScale::Resolve(
+		nrRegion.width, nrRegion.height, scaledModel ? gNrModelScaleMode : 0);
 	EyeState &state = gEye[eye];
 	// Pure DLAA/baseline sessions do not allocate or evaluate NR resources.
 	bool wantsNr = gDlssNrEnabled && gDlssNrDisplayModelOutput &&
 		gDlssNrMode > 0 &&
-		(gDlssNrDirectReady || gDlssNrReady) && !gDlssNrRuntimeFailed;
+		(gDlssNrDirectReady || gDlssNrReady) && !gDlssNrRuntimeFailed &&
+		!(eye < EYE_COUNT && ((gNrFoveationMode > 0 && gNrFoveationFailed) ||
+		(gNrModelScaleMode > 0 && gNrModelScaleFailed) ||
+		(gNrStereoMode == 1 && gNrSharingFailed))) &&
+		!(gNrStereoMode == 1 && eye == 1);
 	if(state.output && state.motion && state.width == width &&
 	   state.height == height && state.outputWidth == outputWidth &&
 	   state.outputHeight == outputHeight && state.optionsMode == gQualityMode &&
@@ -659,6 +686,7 @@ bool CreateEyeResources(int eye, uint32 width, uint32 height,
 	    state.nrRegionLeft == nrRegion.left && state.nrRegionTop == nrRegion.top &&
 	    state.nrRegionWidth == nrRegion.width &&
 	    state.nrRegionHeight == nrRegion.height &&
+	    state.nrModelWidth == modelSize.width && state.nrModelHeight == modelSize.height &&
 	    state.nrOutput && state.nrInput &&
 	    (gDlssNrPassCount == 1 || state.nrScratch))))
 		return true;
@@ -681,15 +709,15 @@ bool CreateEyeResources(int eye, uint32 width, uint32 height,
 		return false;
 	}
 	if(wantsNr &&
-	   (!CreateTexture(device, nrRegion.width, nrRegion.height,
+	   (!CreateTexture(device, modelSize.width, modelSize.height,
 	   DXGI_FORMAT_R8G8B8A8_UNORM, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
 	   D3D12_RESOURCE_STATE_UNORDERED_ACCESS, &state.nrOutput) ||
-	   (gDlssNrPassCount > 1 && !CreateTexture(device, nrRegion.width,
-	   nrRegion.height,
+	   (gDlssNrPassCount > 1 && !CreateTexture(device, modelSize.width,
+	   modelSize.height,
 	   DXGI_FORMAT_R8G8B8A8_UNORM, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
 	   D3D12_RESOURCE_STATE_UNORDERED_ACCESS, &state.nrScratch)) ||
-	   !CreateTexture(device, width, height,
-	   DXGI_FORMAT_R8G8B8A8_UNORM, D3D12_RESOURCE_FLAG_NONE,
+	   !CreateTexture(device, modelSize.width, modelSize.height,
+	   DXGI_FORMAT_R8G8B8A8_UNORM, scaledModel ? D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS : D3D12_RESOURCE_FLAG_NONE,
 	   D3D12_RESOURCE_STATE_COPY_DEST, &state.nrInput))){
 		ReleaseEye(eye);
 		return false;
@@ -707,6 +735,8 @@ bool CreateEyeResources(int eye, uint32 width, uint32 height,
 	state.nrRegionTop = nrRegion.top;
 	state.nrRegionWidth = nrRegion.width;
 	state.nrRegionHeight = nrRegion.height;
+	state.nrModelWidth = modelSize.width;
+	state.nrModelHeight = modelSize.height;
 	state.nrRegionMode = nrRegion.mode;
 	state.optionsMode = gQualityMode;
 	state.nrEnabled = wantsNr;
@@ -920,7 +950,11 @@ void ShutdownDirectNrBackend()
 
 void TickFrameRateTelemetry()
 {
-	const bool nrActive = gDlssNrActiveLogged && !gDlssNrRuntimeFailed;
+	const bool nrActive = gDlssNrActiveLogged && !gDlssNrRuntimeFailed &&
+		gDlssNrEnabled && gDlssNrDisplayModelOutput && gDlssNrMode > 0 &&
+		!HasNeuralFoveationFailed() &&
+		!HasNeuralModelScaleFailed() &&
+		!(gNrStereoMode == 1 && gNrSharingFailed);
 	if(!gPerfFrequency.QuadPart)
 		QueryPerformanceFrequency(&gPerfFrequency);
 	LARGE_INTEGER now;
@@ -936,7 +970,7 @@ void TickFrameRateTelemetry()
 		(double)gPerfFrequency.QuadPart;
 	if(seconds >= 5.0){
 		WriteLog("[DLSS perf] backend=%s frames=%u seconds=%.3f fps=%.2f",
-			nrActive ? "DLSS-NR-direct" : "DLAA", gPerfFrameCount,
+			nrActive ? (gNrStereoMode == 1 ? "DLSS-NR-shared" : "DLSS-NR-direct") : "DLAA", gPerfFrameCount,
 			seconds, (double)gPerfFrameCount/seconds);
 		gPerfWindowStart = now;
 		gPerfFrameCount = 0;
@@ -1220,6 +1254,190 @@ void BuildConstants(const EyeInput &input, EyeState &state, sl::Constants &const
 	constants.motionVectorsDilated = sl::Boolean::eFalse;
 	constants.motionVectorsJittered = sl::Boolean::eFalse;
 }
+
+void FailNeuralStereoSharing(const char *reason)
+{
+	if(!gNrSharingFailed)
+		SetStatus("DLSS 5 SHARED failed: %s; both eyes use baseline", reason);
+	gNrSharingFailed = true;
+	gNrSharedUsedMask = 0;
+	gDlssNrStereoDisplayReady = false;
+	gSharedStereo.ResetFrame();
+}
+
+void FailNeuralFoveation(const char *reason)
+{
+	if(!gNrFoveationFailed)
+		SetStatus("DLSS 5 FOVEATION failed: %s; both eyes use baseline", reason);
+	gNrFoveationFailed = true;
+	gDlssNrActiveMask = 0;
+	gDlssNrStereoDisplayReady = false;
+	gNrSharedUsedMask = 0;
+	gSharedStereo.ResetFrame();
+	for(int eye = 0; eye < EYE_COUNT; eye++) gFoveation[eye].ResetFrame();
+}
+
+void FailNeuralPair(const char *reason)
+{
+	if(gNrModelScaleMode > 0){
+		if(!gNrModelScaleFailed)
+			SetStatus("DLSS 5 MODEL SCALE failed: %s; both eyes use baseline", reason);
+		gNrModelScaleFailed = true;
+		gDlssNrActiveMask = 0;
+		gDlssNrStereoDisplayReady = false;
+		gNrSharedUsedMask = 0;
+		gSharedStereo.ResetFrame();
+		for(int eye = 0; eye < EYE_COUNT; eye++) gModelScale[eye].ResetFrame();
+	}
+	if(gNrFoveationMode > 0) FailNeuralFoveation(reason);
+	if(gNrStereoMode == 1) FailNeuralStereoSharing(reason);
+}
+}
+
+void SetNeuralRenderingModelScaleMode(int mode)
+{
+	mode = mode < 0 || mode > 3 ? 0 : mode;
+	if(gNrModelScaleMode == mode) return;
+	gNrModelScaleMode = mode;
+	gNrModelScaleFailed = gNrModelScaleLogged = false;
+	gNrFoveationFailed = gNrFoveationLogged = false;
+	gNrSharingFailed = gNrSharingLogged = false;
+	gDlssNrRuntimeFailed = false;
+	gDlssNrActiveLogged = false;
+	gSharedStereo.ReleaseTargets();
+	for(int eye = 0; eye < EYE_COUNT; eye++){
+		gFoveation[eye].ReleaseTargets();
+		gModelScale[eye].Release();
+	}
+	ResetHistory();
+	WriteLog("[DLSS-NR model scale] mode=%s; scene scale unchanged; histories reset",
+		GetNeuralRenderingModelScaleModeName());
+}
+
+int GetNeuralRenderingModelScaleMode() { return gNrModelScaleMode; }
+const char *GetNeuralRenderingModelScaleModeName()
+{
+	static const char *names[] = { "FULL 100%", "QUALITY 75%", "BALANCED 67%", "PERFORMANCE 50%" };
+	return names[gNrModelScaleMode];
+}
+bool HasNeuralModelScaleFailed() { return gNrModelScaleMode > 0 && gNrModelScaleFailed; }
+
+void SetNeuralRenderingFoveationMode(int mode)
+{
+	mode = mode < 0 || mode > 3 ? 0 : mode;
+	if(gNrFoveationMode == mode) return;
+	gNrFoveationMode = mode;
+	gNrModelScaleFailed = gNrModelScaleLogged = false;
+	for(int eye = 0; eye < EYE_COUNT; eye++) gModelScale[eye].ReleaseTargets();
+	gNrFoveationFailed = gNrFoveationLogged = false;
+	gNrSharingFailed = gNrSharingLogged = false;
+	gDlssNrRuntimeFailed = false;
+	gSharedStereo.ReleaseTargets();
+	for(int eye = 0; eye < EYE_COUNT; eye++) gFoveation[eye].Release();
+	ResetHistory();
+	WriteLog("[DLSS-NR foveation] mode=%s; histories reset", GetNeuralRenderingFoveationModeName());
+}
+
+int GetNeuralRenderingFoveationMode() { return gNrFoveationMode; }
+const char *GetNeuralRenderingFoveationModeName()
+{
+	static const char *names[] = { "OFF", "QUALITY", "BALANCED", "PERFORMANCE" };
+	return names[gNrFoveationMode];
+}
+bool HasNeuralFoveationFailed() { return gNrFoveationMode > 0 && gNrFoveationFailed; }
+
+void SetNeuralRenderingStereoMode(int mode)
+{
+	mode = mode == 1 ? 1 : 0;
+	if(gNrStereoMode == mode) return;
+	gNrStereoMode = mode;
+	gNrModelScaleFailed = gNrModelScaleLogged = false;
+	for(int eye = 0; eye < EYE_COUNT; eye++){
+		gModelScale[eye].ReleaseTargets();
+		gFoveation[eye].ReleaseTargets();
+	}
+	gDlssNrRuntimeFailed = false;
+	gNrSharingFailed = false;
+	gNrSharingLogged = false;
+	gNrFoveationFailed = gNrFoveationLogged = false;
+	gNrSharedUsedMask = 0;
+	gSharedStereo.Release();
+	ResetHistory();
+	WriteLog("[DLSS-NR stereo] mode=%s; histories reset",
+		GetNeuralRenderingStereoModeName());
+}
+
+int GetNeuralRenderingStereoMode() { return gNrStereoMode; }
+const char *GetNeuralRenderingStereoModeName()
+{
+	return gNrStereoMode == 1 ? "SHARED (EXPERIMENTAL)" : "PER EYE";
+}
+bool HasNeuralStereoSharingFailed() { return gNrStereoMode == 1 && gNrSharingFailed; }
+void RejectNeuralStereoPair()
+{
+	if(gNrStereoMode != 1 && gNrFoveationMode == 0 && gNrModelScaleMode == 0) return;
+	FailNeuralPair("eye reconstruction or presentation failed");
+	ResetHistory();
+	gLastEvaluationSucceeded = false;
+}
+
+bool PrepareNeuralStereoPair(const EyeInput &left, const EyeInput &right,
+	float rasterJitterX, float rasterJitterY)
+{
+	gSharedStereo.ResetFrame();
+	gNrSharedUsedMask = 0;
+	for(int eye = 0; eye < EYE_COUNT; eye++) gFoveation[eye].ResetFrame();
+	for(int eye = 0; eye < EYE_COUNT; eye++) gModelScale[eye].ResetFrame();
+	if((gNrStereoMode != 1 && gNrFoveationMode == 0 && gNrModelScaleMode == 0) ||
+	   HasNeuralStereoSharingFailed() || HasNeuralFoveationFailed() ||
+	   HasNeuralModelScaleFailed() || !gDlssNrEnabled ||
+	   !gDlssNrDisplayModelOutput || gDlssNrMode == 0 || gDlssNrRuntimeFailed)
+		return false;
+	if(!gFrameReady || !left.color || !right.color || !left.depth || !right.depth ||
+	   !left.width || !left.height || !right.width || !right.height){
+		FailNeuralPair("missing current stereo inputs");
+		return false;
+	}
+	if(!gDlssNrDirectReady && !gDlssNrDirectAttempted)
+		InitializeDirectNrBackend(rw::d3d12::getDevice());
+	if((gNrFoveationMode > 0 || gNrModelScaleMode > 0) && !gDlssNrDirectReady){
+		FailNeuralPair("foveation/model scale requires the direct NR backend");
+		return false;
+	}
+	// Allocate the complete pair before displaying either eye.
+	if(!CreateEyeResources(0, left.width, left.height, left.outputWidth, left.outputHeight) ||
+	   !CreateEyeResources(1, right.width, right.height, right.outputWidth, right.outputHeight)){
+		FailNeuralPair("eye target allocation failed");
+		return false;
+	}
+	ID3D12Resource *model = (gDlssNrPassCount & 1) ? gEye[0].nrOutput : gEye[0].nrScratch;
+	if(gNrFoveationMode > 0 || gNrModelScaleMode > 0){
+		const EyeInput *inputs[] = { &left, &right };
+		const int count = gNrStereoMode == 1 ? 1 : EYE_COUNT;
+		for(int eye = 0; eye < count; eye++){
+			const EyeInput &input = *inputs[eye];
+			ID3D12Resource *cropModel = (gDlssNrPassCount & 1) ? gEye[eye].nrOutput : gEye[eye].nrScratch;
+			const DlssNrFoveation::Region crop = DlssNrFoveation::Resolve(input.width, input.height, gNrFoveationMode);
+			if(gNrModelScaleMode > 0){
+				if(!gModelScale[eye].Prepare(rw::d3d12::getDevice(), input, crop,
+				   gEye[eye].nrInput, cropModel)){
+					FailNeuralPair(gModelScale[eye].failure);
+					return false;
+				}
+				cropModel = gModelScale[eye].output;
+			}
+			if(gNrFoveationMode > 0 && !gFoveation[eye].Prepare(rw::d3d12::getDevice(), input, cropModel, crop)){
+				FailNeuralPair(gFoveation[eye].failure);
+				return false;
+			}
+		}
+		model = gNrFoveationMode > 0 ? gFoveation[0].output : gModelScale[0].output;
+	}
+	if(gNrStereoMode == 1 && !gSharedStereo.Prepare(rw::d3d12::getDevice(), left, right, model, rasterJitterX, rasterJitterY)){
+		FailNeuralStereoSharing(gSharedStereo.failure ? gSharedStereo.failure : "preparation failed");
+		return false;
+	}
+	return true;
 }
 
 void SetQualityMode(int mode)
@@ -1230,6 +1448,9 @@ void SetQualityMode(int mode)
 		return;
 	gQualityMode = mode;
 	gDlssNrRegionMode = mode;
+	gNrModelScaleFailed = gNrModelScaleLogged = false;
+	gNrFoveationFailed = gNrFoveationLogged = false;
+	gNrSharingFailed = false;
 	gDlssNrRuntimeFailed = false;
 	gDlssNrActiveMask = 0;
 	gDlssNrStereoDisplayReady = false;
@@ -1242,7 +1463,7 @@ void SetQualityMode(int mode)
 		memset(gEye[eye].nrHistoryValid, 0,
 			sizeof(gEye[eye].nrHistoryValid));
 	}
-	WriteLog("[DLSS-NR] work scale=%s; neural 1:1 then DLSS reconstruction",
+	WriteLog("[DLSS-NR] scene scale=%s; model scale independent, then DLSS reconstruction",
 		GetNeuralRenderingRegionModeName());
 }
 
@@ -1257,6 +1478,14 @@ void SetNeuralRenderingEnabled(bool enabled)
 {
 	if(gDlssNrEnabled == enabled)
 		return;
+	gSharedStereo.Release();
+	for(int eye = 0; eye < EYE_COUNT; eye++) gModelScale[eye].Release();
+	gNrModelScaleFailed = gNrModelScaleLogged = false;
+	for(int eye = 0; eye < EYE_COUNT; eye++) gFoveation[eye].Release();
+	gNrFoveationFailed = gNrFoveationLogged = false;
+	gNrSharedUsedMask = 0;
+	gNrSharingFailed = false;
+	gNrSharingLogged = false;
 	gDlssNrEnabled = enabled;
 	gDlssNrRuntimeFailed = false;
 	gDlssNrActiveLogged = false;
@@ -1331,6 +1560,8 @@ void SetNeuralRenderingPassCount(int passes)
 	if(gDlssNrPassCount == passes)
 		return;
 	gDlssNrPassCount = passes;
+	gNrModelScaleLogged = false;
+	gNrFoveationLogged = false;
 	gDlssNrActiveMask = 0;
 	gDlssNrStereoDisplayReady = false;
 	gDlssNrActiveLogged = false;
@@ -1343,17 +1574,6 @@ void SetNeuralRenderingPassCount(int passes)
 int GetNeuralRenderingPassCount()
 {
 	return gDlssNrPassCount;
-}
-
-void SetNeuralRenderingRegionMode(int mode)
-{
-	mode = mode < 0 ? 0 : (mode > 3 ? 3 : mode);
-	SetQualityMode(mode);
-}
-
-int GetNeuralRenderingRegionMode()
-{
-	return gDlssNrRegionMode;
 }
 
 const char *GetNeuralRenderingRegionModeName(int mode)
@@ -1545,7 +1765,7 @@ int EvaluateDirectNr(int slot, int pass, EyeState &state,
 			gPluginDirectory);
 		state.nrDirectFeature[pass] = gDlssNrDirectCreate(modelPath,
 			gPluginDirectory, rw::d3d12::getDevice(), list,
-			gDlssNrCapabilityParams, state.nrRegionWidth, state.nrRegionHeight,
+			gDlssNrCapabilityParams, state.nrModelWidth, state.nrModelHeight,
 			profile.preset, gDlssNrTuning.intensity, gDlssNrTuning.style,
 			gDlssNrTuning.localStructure, gDlssNrTuning.localTone,
 			gDlssNrTuning.globalTone, -1.0f, gDlssNrTuning.autoMask,
@@ -1559,26 +1779,26 @@ int EvaluateDirectNr(int slot, int pass, EyeState &state,
 				"init 0x%08X, feature 18 create 0x%08X", slot, pass+1,
 				initResult, createResult);
 			SetStatus("DLSS 5 create failed at %ux%u (0x%08X)",
-				state.nrRegionWidth, state.nrRegionHeight, createResult);
+				state.nrModelWidth, state.nrModelHeight, createResult);
 			return -1;
 		}
 		LogDlssNrProfile("feature create", slot);
 		WriteLog("[DLSS-NR direct] slot %d pass %d feature 18 created at "
 			"%ux%u; first evaluate deferred one frame", slot, pass+1,
-			state.nrRegionWidth, state.nrRegionHeight);
+			state.nrModelWidth, state.nrModelHeight);
 		return 0;
 	}
 
 	const uint32 colorBaseX = 0;
 	const uint32 colorBaseY = 0;
-	const uint32 depthBaseX = input.sourceLeft;
-	const uint32 depthBaseY = 0;
-	const uint32 motionBaseX = 0;
-	const uint32 motionBaseY = 0;
+	const uint32 depthBaseX = input.sourceLeft + state.nrRegionLeft;
+	const uint32 depthBaseY = state.nrRegionTop;
+	const uint32 motionBaseX = state.nrRegionLeft;
+	const uint32 motionBaseY = state.nrRegionTop;
 	const int result = gDlssNrDirectEvaluate(list, state.nrDirectFeature[pass],
 		gDlssNrCapabilityParams, source,
 		reinterpret_cast<ID3D12Resource*>(input.depth), state.motion,
-		destination, state.nrRegionWidth, state.nrRegionHeight,
+		destination, state.nrModelWidth, state.nrModelHeight,
 		state.nrRegionWidth, state.nrRegionHeight,
 		colorBaseX, colorBaseY, depthBaseX, depthBaseY,
 		motionBaseX, motionBaseY, 0,
@@ -1586,12 +1806,13 @@ int EvaluateDirectNr(int slot, int pass, EyeState &state,
 		gDlssNrTuning.intensity, gDlssNrTuning.style,
 		gDlssNrTuning.localStructure, gDlssNrTuning.localTone,
 		gDlssNrTuning.globalTone, -1.0f, gDlssNrTuning.autoMask,
-		1.0f, 1.0f);
+		(float)state.nrModelWidth / state.nrRegionWidth,
+		(float)state.nrModelHeight / state.nrRegionHeight);
 	if(result != 1){
 		WriteLog("[DLSS-NR direct] slot %d pass %d evaluate failed: 0x%08X",
 			slot, pass+1, (uint32)result);
 		SetStatus("DLSS 5 evaluate failed at %ux%u (0x%08X)",
-			state.nrRegionWidth, state.nrRegionHeight, (uint32)result);
+			state.nrModelWidth, state.nrModelHeight, (uint32)result);
 		return -1;
 	}
 
@@ -1625,7 +1846,7 @@ void InitializeEarly()
 	// NGX permits custom engines without an NVIDIA-issued application ID when
 	// they provide a stable GUID-like project ID and an engine version.
 	preferences.engine = sl::EngineType::eCustom;
-	preferences.engineVersion = "0.5.5";
+	preferences.engineVersion = "0.5.5.1";
 	preferences.projectId = "4557d919-aaf5-4797-8baa-c2acc5950bf1";
 	preferences.renderAPI = sl::RenderAPI::eD3D12;
 	if(FindPluginDirectory()){
@@ -1711,10 +1932,12 @@ void AttachDevice()
 
 bool BeginFrame(float jitterX, float jitterY)
 {
-	// Only expose the neural result to stereo after both independent feature
-	// instances completed at least once. This prevents a one-eye activation
-	// frame while the second feature is still being created.
-	gDlssNrStereoDisplayReady = gDlssNrMode > 0 &&
+	gSharedStereo.ResetFrame();
+	for(int eye = 0; eye < EYE_COUNT; eye++) gModelScale[eye].ResetFrame();
+	for(int eye = 0; eye < EYE_COUNT; eye++) gFoveation[eye].ResetFrame();
+	gNrSharedUsedMask = 0;
+	// PER EYE needs both features ready; SHARED validates its composed pair below.
+	gDlssNrStereoDisplayReady = gNrStereoMode == 0 && gDlssNrMode > 0 &&
 		(gDlssNrActiveMask & ((1u << EYE_COUNT)-1u)) ==
 		((1u << EYE_COUNT)-1u);
 	gFrameReady = false;
@@ -1878,17 +2101,50 @@ bool EvaluateEye(int eye, const EyeInput &input, EyeOutput *output)
 		reinterpret_cast<ID3D12Resource*>(input.color);
 	sl::Extent *dlssInputExtent = &sourceExtent;
 	bool useNeuralInput = false;
+	const bool sharedEye = gNrStereoMode == 1 && eye < EYE_COUNT;
+	const bool foveatedEye = gNrFoveationMode > 0 && eye < EYE_COUNT;
+	const bool scaledEye = gNrModelScaleMode > 0 && eye < EYE_COUNT;
+	const bool wantsModelScale = scaledEye && gDlssNrEnabled &&
+		gDlssNrDisplayModelOutput && gDlssNrMode > 0 && !gDlssNrRuntimeFailed;
+	const bool wantsFoveation = foveatedEye && gDlssNrEnabled &&
+		gDlssNrDisplayModelOutput && gDlssNrMode > 0 && !gDlssNrRuntimeFailed;
+	const bool wantsShared = sharedEye && gDlssNrEnabled &&
+		gDlssNrDisplayModelOutput && gDlssNrMode > 0 && !gDlssNrRuntimeFailed;
+	if(wantsShared && !gNrSharingFailed && !gSharedStereo.Matches(eye, input))
+		FailNeuralStereoSharing("eye input changed or pair was not prepared");
+	if(wantsModelScale && !gNrModelScaleFailed && (!sharedEye || eye == 0)){
+		const EyeInput &prepared = gModelScale[eye].input;
+		if(!gModelScale[eye].prepared || prepared.color != input.color ||
+		   prepared.width != input.width || prepared.height != input.height ||
+		   prepared.sourceLeft != input.sourceLeft)
+			FailNeuralPair("scaled model eye changed or pair was not prepared");
+	}
+	if(wantsFoveation && !gNrFoveationFailed && (!sharedEye || eye == 0)){
+		const EyeInput &prepared = gFoveation[eye].input;
+		if(!gFoveation[eye].prepared || prepared.color != input.color ||
+		   prepared.width != input.width || prepared.height != input.height ||
+		   prepared.sourceLeft != input.sourceLeft)
+			FailNeuralPair("foveated eye changed or pair was not prepared");
+	}
 	if(gDlssNrMode > 0 && state.nrEnabled && state.nrOutput &&
-	   (gDlssNrDirectReady || gDlssNrReady) && !gDlssNrRuntimeFailed){
+	   (gDlssNrDirectReady || gDlssNrReady) && !gDlssNrRuntimeFailed &&
+	   (!foveatedEye || (gDlssNrDirectReady && !gNrFoveationFailed)) &&
+	   (!scaledEye || (gDlssNrDirectReady && !gNrModelScaleFailed)) &&
+	   (!sharedEye || (eye == 0 && gSharedStereo.prepared && !gNrSharingFailed))){
 		ID3D12Resource *modelResource = nil;
 		D3D12_RESOURCE_STATES *modelState = nil;
 		int completedPasses = 0;
-		bool nrFailed = !CopyNeuralColorInput(list,
+		bool nrFailed = scaledEye ? !gModelScale[eye].Downsample(list,
+			state.nrInput, state.nrInputState, heap) : !CopyNeuralColorInput(list,
 			reinterpret_cast<ID3D12Resource*>(input.color), state.nrInput,
-			state.nrInputState, input.sourceLeft, input.width, input.height);
-		if(nrFailed)
-			SetStatus("DLSS 5 color input invalid for eye %d: x=%u, %ux%u",
-				eye, input.sourceLeft, input.width, input.height);
+			state.nrInputState, input.sourceLeft + state.nrRegionLeft,
+			state.nrRegionWidth, state.nrRegionHeight, state.nrRegionTop);
+		if(nrFailed && scaledEye)
+			FailNeuralPair(gModelScale[eye].failure);
+		if(nrFailed && !scaledEye)
+			SetStatus("DLSS 5 color input invalid for eye %d: x=%u y=%u, %ux%u",
+				eye, input.sourceLeft + state.nrRegionLeft, state.nrRegionTop,
+				state.nrRegionWidth, state.nrRegionHeight);
 		for(int pass = 0; !nrFailed && pass < gDlssNrPassCount; pass++){
 			ID3D12Resource *source = pass == 0 ?
 				state.nrInput : modelResource;
@@ -1993,11 +2249,12 @@ bool EvaluateEye(int eye, const EyeInput &input, EyeOutput *output)
 
 		if(nrFailed){
 			if(gDlssNrEvaluationLogCount++ < 8)
-				WriteLog("[DLSS-NR] failed at %ux%u; using DLSS/DLAA baseline",
+				WriteLog("[DLSS-NR] failed at %ux%u; neural output bypassed",
 					state.nrRegionWidth, state.nrRegionHeight);
 			gDlssNrRuntimeFailed = true;
 			gDlssNrActiveMask = 0;
 			gDlssNrStereoDisplayReady = false;
+			if(eye < EYE_COUNT) FailNeuralPair("NR crop or model evaluation failed; see previous log entry");
 		}
 		const bool nrSucceeded = !nrFailed &&
 			completedPasses == gDlssNrPassCount;
@@ -2007,8 +2264,56 @@ bool EvaluateEye(int eye, const EyeInput &input, EyeOutput *output)
 				(gDlssNrActiveMask & slotBit) == 0;
 			gDlssNrActiveMask |= slotBit;
 			const bool stereoPresentationReady =
-				eye == kDesktopSlot || gDlssNrStereoDisplayReady;
-			if(stereoPresentationReady){
+				eye == kDesktopSlot || (!sharedEye && gDlssNrStereoDisplayReady);
+			bool modelReady = true;
+			if(scaledEye){
+				Transition(list, modelResource, *modelState,
+					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				modelReady = gModelScale[eye].Compose(list, modelResource, heap);
+				if(!modelReady){
+					FailNeuralPair(gModelScale[eye].failure);
+				}else{
+					modelResource = gModelScale[eye].output;
+					modelState = &gModelScale[eye].state;
+					if(!gNrModelScaleLogged){
+						gNrModelScaleLogged = true;
+						WriteLog("[DLSS-NR model scale] %s composited: scene %ux%u, crop %u,%u %ux%u, "
+							"model %ux%u, MV scale %.6f,%.6f; %dx NR, %s, matched residual",
+							GetNeuralRenderingModelScaleModeName(), input.width, input.height,
+							state.nrRegionLeft, state.nrRegionTop, state.nrRegionWidth, state.nrRegionHeight,
+							state.nrModelWidth, state.nrModelHeight,
+							(float)state.nrModelWidth / state.nrRegionWidth,
+							(float)state.nrModelHeight / state.nrRegionHeight,
+							gDlssNrPassCount, GetNeuralRenderingStereoModeName());
+					}
+				}
+			}
+			if(foveatedEye && modelReady){
+				Transition(list, modelResource, *modelState,
+					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				modelReady = gFoveation[eye].Compose(list, modelResource, heap);
+				if(!modelReady){
+					FailNeuralPair(gFoveation[eye].failure);
+				}else{
+					modelResource = gFoveation[eye].output;
+					modelState = &gFoveation[eye].state;
+					if(!gNrFoveationLogged){
+						gNrFoveationLogged = true;
+						WriteLog("[DLSS-NR foveation] %s composited: crop %u,%u %ux%u of %ux%u; "
+							"%dx NR, %s, full-eye reconstruction", GetNeuralRenderingFoveationModeName(),
+							state.nrRegionLeft, state.nrRegionTop, state.nrRegionWidth, state.nrRegionHeight,
+							input.width, input.height, gDlssNrPassCount, GetNeuralRenderingStereoModeName());
+					}
+				}
+			}
+			if(sharedEye && modelReady){
+				Transition(list, modelResource, *modelState,
+					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				// Build both masked inputs before either eye is reconstructed.
+				if(!gSharedStereo.Compose(list, modelResource, heap))
+					FailNeuralStereoSharing(gSharedStereo.failure);
+			}
+			if(stereoPresentationReady && modelReady){
 				Transition(list, modelResource, *modelState,
 					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 				dlssInputResource = modelResource;
@@ -2018,10 +2323,10 @@ bool EvaluateEye(int eye, const EyeInput &input, EyeOutput *output)
 			if(firstSuccessForSlot)
 				WriteLog("[DLSS-NR] slot %d %dx sequential evaluation active: "
 					"work %ux%u -> output %ux%u, scale %s", eye,
-					gDlssNrPassCount, state.nrRegionWidth, state.nrRegionHeight,
+					gDlssNrPassCount, state.nrModelWidth, state.nrModelHeight,
 					state.outputWidth, state.outputHeight,
-					GetNeuralRenderingRegionModeName(state.nrRegionMode));
-			if(!gDlssNrRuntimeFailed && !gDlssNrActiveLogged){
+					GetNeuralRenderingRegionModeName(gQualityMode));
+			if(modelReady && !gDlssNrRuntimeFailed && !gDlssNrActiveLogged){
 				gDlssNrActiveLogged = true;
 				WriteLog("[DLSS-NR] model evaluation active before DLSS reconstruction "
 					"with %dx sequential passes", gDlssNrPassCount);
@@ -2029,6 +2334,12 @@ bool EvaluateEye(int eye, const EyeInput &input, EyeOutput *output)
 		}else{
 			gDlssNrActiveMask &= ~(1u << eye);
 		}
+	}
+	if(wantsShared && !gNrSharingFailed && !HasNeuralFoveationFailed() &&
+	   !HasNeuralModelScaleFailed() && gSharedStereo.composed){
+		dlssInputResource = gSharedStereo.output[eye];
+		dlssInputExtent = &localExtent;
+		useNeuralInput = true;
 	}
 
 	// DLSS-NR is a same-resolution pre-process. DLSS SR (or 1:1 DLAA) is the
@@ -2071,6 +2382,17 @@ bool EvaluateEye(int eye, const EyeInput &input, EyeOutput *output)
 		WriteLog("[DLSS-NR] eye %d reconstructed local NR color %ux%u -> %ux%u",
 			eye, state.width, state.height, state.outputWidth, state.outputHeight);
 	state.dlssUsedNeuralInput = useNeuralInput;
+	if(sharedEye && useNeuralInput){
+		gNrSharedUsedMask |= 1u << eye;
+		gDlssNrStereoDisplayReady = gNrSharedUsedMask == 3;
+		if(gDlssNrStereoDisplayReady && !gNrSharingLogged){
+			WriteLog("[DLSS-NR stereo] SHARED active: NR evaluations=%d per stereo frame "
+				"(left only), two masked depth reprojections, two DLSS reconstructions, "
+				"work=%ux%u; pixel rejection preserves baseline",
+				gDlssNrPassCount, state.width, state.height);
+			gNrSharingLogged = true;
+		}
+	}
 	Transition(list, state.output, state.outputState,
 		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
@@ -2095,6 +2417,10 @@ bool EvaluateEye(int eye, const EyeInput &input, EyeOutput *output)
 
 void ResetHistory()
 {
+	gSharedStereo.ResetFrame();
+	for(int eye = 0; eye < EYE_COUNT; eye++) gModelScale[eye].ResetFrame();
+	for(int eye = 0; eye < EYE_COUNT; eye++) gFoveation[eye].ResetFrame();
+	gNrSharedUsedMask = 0;
 	for(int eye = 0; eye < SLOT_COUNT; eye++){
 		gEye[eye].historyValid = false;
 		memset(gEye[eye].nrHistoryValid, 0,
@@ -2107,6 +2433,10 @@ void ResetHistory()
 
 void ReleaseResources()
 {
+	gSharedStereo.ReleaseTargets();
+	for(int eye = 0; eye < EYE_COUNT; eye++) gModelScale[eye].ReleaseTargets();
+	for(int eye = 0; eye < EYE_COUNT; eye++) gFoveation[eye].ReleaseTargets();
+	gNrSharedUsedMask = 0;
 	for(int eye = 0; eye < SLOT_COUNT; eye++)
 		ReleaseEye(eye);
 	gFrameReady = false;
@@ -2117,6 +2447,9 @@ void Shutdown()
 {
 	ReleaseResources();
 	ReleaseMotionPipeline();
+	for(int eye = 0; eye < EYE_COUNT; eye++) gModelScale[eye].Release();
+	gSharedStereo.Release();
+	for(int eye = 0; eye < EYE_COUNT; eye++) gFoveation[eye].Release();
 	ShutdownDirectNrBackend();
 	if(gInitialized){
 		WriteLog("[DLAA] Shutting down Streamline");
@@ -2141,12 +2474,18 @@ bool IsSupported() { return gSupported; }
 bool IsNeuralRenderingActive()
 {
 	return gDlssNrEnabled && gDlssNrMode > 0 &&
+		!HasNeuralModelScaleFailed() &&
+		!HasNeuralFoveationFailed() &&
 		(gDlssNrDirectReady || gDlssNrReady) &&
 		!gDlssNrRuntimeFailed &&
 		gDlssNrActiveMask != 0;
 }
 bool IsNeuralRenderingStereoActive()
 {
+	if(gNrStereoMode == 1)
+		return IsNeuralRenderingActive() && !gNrSharingFailed &&
+			gSharedStereo.composed && gNrSharedUsedMask == 3 &&
+			gEye[0].dlssUsedNeuralInput && gEye[1].dlssUsedNeuralInput;
 	const uint32 stereoMask = (1u << EYE_COUNT)-1u;
 	return IsNeuralRenderingActive() &&
 		(gDlssNrActiveMask & stereoMask) == stereoMask &&
@@ -2161,6 +2500,13 @@ void SetNeuralRenderingOutputVisible(bool visible)
 {
 	if(gDlssNrDisplayModelOutput == visible && !gDlssNrSplitView)
 		return;
+	gSharedStereo.ReleaseTargets();
+	for(int eye = 0; eye < EYE_COUNT; eye++) gModelScale[eye].ReleaseTargets();
+	gNrModelScaleFailed = gNrModelScaleLogged = false;
+	for(int eye = 0; eye < EYE_COUNT; eye++) gFoveation[eye].ReleaseTargets();
+	gNrFoveationFailed = gNrFoveationLogged = false;
+	gNrSharedUsedMask = 0;
+	gNrSharingFailed = gNrSharingLogged = false;
 	gDlssNrSplitView = false;
 	gDlssNrDisplayModelOutput = visible;
 	gDlssNrRuntimeFailed = false;
@@ -2236,8 +2582,20 @@ void SetNeuralRenderingMode(int) {}
 int GetNeuralRenderingMode() { return 0; }
 void SetNeuralRenderingPassCount(int) {}
 int GetNeuralRenderingPassCount() { return 1; }
-void SetNeuralRenderingRegionMode(int) {}
-int GetNeuralRenderingRegionMode() { return 0; }
+void SetNeuralRenderingStereoMode(int) {}
+int GetNeuralRenderingStereoMode() { return 0; }
+const char *GetNeuralRenderingStereoModeName() { return "PER EYE"; }
+void SetNeuralRenderingFoveationMode(int) {}
+int GetNeuralRenderingFoveationMode() { return 0; }
+const char *GetNeuralRenderingFoveationModeName() { return "OFF"; }
+bool HasNeuralFoveationFailed() { return false; }
+void SetNeuralRenderingModelScaleMode(int) {}
+int GetNeuralRenderingModelScaleMode() { return 0; }
+const char *GetNeuralRenderingModelScaleModeName() { return "FULL 100%"; }
+bool HasNeuralModelScaleFailed() { return false; }
+bool PrepareNeuralStereoPair(const EyeInput&, const EyeInput&, float, float) { return false; }
+bool HasNeuralStereoSharingFailed() { return false; }
+void RejectNeuralStereoPair() {}
 const char *GetNeuralRenderingRegionModeName() { return "FULL"; }
 const char *GetNeuralRenderingRegionModeName(int) { return "FULL"; }
 bool ConsumeNeuralRenderingPassCountChanged() { return false; }

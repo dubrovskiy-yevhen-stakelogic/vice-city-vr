@@ -1,4 +1,4 @@
-# Vice City VR 0.5.5 player-package notices
+# Vice City VR 0.5.5.1 player-package notices
 
 The root LICENSE applies only to original Vice City VR contributions, not to
 the complete executable or third-party components. The game requires a legally

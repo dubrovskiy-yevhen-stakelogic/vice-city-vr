@@ -136,32 +136,117 @@ attach the proprietary model or modified DLLs to the source repository.
    switching to flat mode is not required for installation or testing.
 2. Select the DLAA temporal backend, enable `NEURAL DLSS 5`, choose one model
    profile, and start with `DLSS 5 PASSES` at `1X`.
-3. Choose `DLSS 5 WORK SCALE`: `FULL`, `QUALITY`, `BALANCED`, or `PERFORMANCE`.
-   This is the same render-resolution choice as `DLSS MODE`, not a second
-   independent percentage. Full uses native-resolution DLAA reconstruction;
-   lower modes use standard DLSS Super Resolution after NR.
+3. Choose `NR MODEL SCALE`: `FULL`, `QUALITY`, `BALANCED`, or `PERFORMANCE`.
+   Start with FULL, then reduce the model scale while comparing quality and
+   GPU frame time. With NR enabled, the scene stays at the selected headset
+   render scale and uses full-resolution DLAA, regardless of a saved ordinary
+   `DLSS MODE` setting. The old `SCENE SCALE` / `DLSS 5 WORK SCALE` row is removed.
 4. Wait for resource creation and history warmup after changing resolution or
    pass count. Confirm the menu says `ACTIVE`, not `PREPARING` or `ERROR`.
 5. With empty hands, hold both grips and press B to compare the selected
    profile against its normal DLAA/DLSS baseline. This changes the whole view,
    not one eye or half of the screen. The baseline bypasses NR evaluation.
 
-The render chain is scene color at the selected work resolution, then 1-3 NR
-passes, then one DLSS SR/DLAA reconstruction to the headset output resolution.
-It covers the full image. It is not the older central crop/feather experiment.
-Approximate linear work scales are 100%, 67%, 58%, and 50%, with dimensions
-aligned to the renderer's constraints. Neither those percentages nor pass
-count imply a fixed FPS multiplier.
+The scene retains its resolution. Foveation optionally selects a central crop;
+model scale resizes only a copy of that area for the 1-3 NR passes. The neural
+changes are composed onto the original scene, then one full-resolution DLAA
+pass resolves the result. Both A/B views use the same scene resolution.
+The separate headset `RENDER SCALE` still works normally. Neither model-scale
+percentages nor pass count imply a fixed FPS multiplier.
+
+With NR disabled, `DLSS MODE` restores its saved ordinary DLAA / Quality /
+Balanced / Performance choice. For older settings without `DLSS5ModelScaleMode`,
+an enabled NR setup migrates the old `DlssMode` level to model scale; an explicit
+new model-scale setting, including FULL, always takes priority. The obsolete
+`DLSSNeuralRegion` key is ignored.
 
 `2X` and `3X` are expensive opt-in visual experiments. They retain separate
-temporal contexts and intermediate images for each pass and eye. Start with
+temporal contexts and intermediate images for each pass and eye in
+`PER EYE` stereo mode. Start with
 one pass and increase only while monitoring GPU frame time and memory. There
 is no integrated frame generation that turns these into low-cost VR modes.
+
+### Experimental shared-eye processing
+
+For new settings, `DLSS 5 STEREO` selects `SHARED (EXPERIMENTAL)` in Graphics.
+It runs the NR chain once on the left eye and reprojects the
+neural color changes to the right eye using the scene depth. Both scene views
+and both DLAA/DLSS reconstructions remain separate. Missing or unreliable
+correspondences use the unmodified scene color rather than copying the left
+eye's image. Flat mode is unchanged.
+
+Compare against `PER EYE` at the same render/model scales, pass count and model profile.
+Look at foliage, nearby objects and newly exposed surfaces during head motion;
+the shared mode is not guaranteed to match independent processing or provide
+a particular speedup. The large temporary status strip identifies `SHARED` or
+`PER EYE`. A sharing error is reported explicitly and bypasses NR for both
+eyes; select `PER EYE` to return to independent processing. Missing settings
+default to `SHARED`; the saved key is `DLSS5StereoMode=1` (`0` selects `PER EYE`).
+
+### Experimental central NR area
+
+`DLSS 5 FOVEATION` in Graphics offers `OFF`, `QUALITY` (default), `BALANCED`,
+and `PERFORMANCE`. These select a fixed central NR crop of approximately
+85% x 85%, 75% x 75%, or 65% x 65% of the work-resolution image, respectively;
+dimensions are aligned to 16 pixels. The rest of the image keeps its original
+scene color. A feathered blend joins the central neural result to that color
+before normal full-frame DLAA/DLSS reconstruction. It is a native renderer
+option, not a ReShade/OptiScaler installation or eye-tracked foveation.
+The current experiment requires the direct NR backend. Other backend paths
+report an explicit foveation error instead of silently processing the full
+image. For the related central-region approach, see
+[Cheeky Foveated DLSS](https://github.com/ClarkCheekyKent/CheekyFoveatedDLSS).
+This implementation runs inside the game's renderer; its add-on, injector
+and OpenXR layer are not bundled or required.
+
+Foveation is independent of `NR MODEL SCALE`, headset render scale, VRS, pass count and `STEREO`.
+It can be combined with SHARED and multiple NR passes. For a 2X comparison,
+keep both scales, model profile and stereo mode unchanged, then compare
+foveation OFF with QUALITY before trying smaller areas. Examine the boundary
+and peripheral detail during head motion and while looking off-center;
+the blend can remain noticeable and there is no guaranteed FPS improvement.
+
+The temporary status strip shows `FOV` and the selected mode. A foveation
+failure is reported as an error rather than successful activation. Switch to
+OFF to restore full-area NR. The saved key is `DLSS5FoveationMode=0..3`;
+flat mode does not use this setting. DLSS 5 itself remains OFF until selected;
+the SHARED/QUALITY defaults only choose how it runs after enabling it. Existing
+saved stereo/foveation choices are preserved, including explicit zero values.
+
+### Experimental NR-only model resolution
+
+`NR MODEL SCALE` replaces the old neural work-scale control. It offers
+`FULL` 100% (default), `QUALITY` 75%,
+`BALANCED` 67%, and `PERFORMANCE` 50% per dimension. It resizes only the copy
+sent to the NR model, without reducing the game's scene render or headset
+output resolution. With foveation enabled, the percentage applies to the
+selected crop. Model dimensions are aligned to the renderer's constraints.
+
+For reduced modes, the model output is compared with its matching downsampled
+original. That neural difference is enlarged and composed onto the original
+full-resolution scene color, including the foveation feather when enabled.
+This keeps the original detail as the base instead of enlarging the entire
+low-resolution image. There is still only one final DLAA/DLSS reconstruction.
+`FULL` bypasses the added model-scaling path and preserves the previous
+full-density NR processing.
+
+This is a VR-only, direct-NR-backend experiment and is opt-in below FULL.
+It does not change SHARED or foveation choices. Keep `1X` for the first test,
+then compare model FULL with QUALITY while keeping headset render scale, profile,
+stereo mode and foveation unchanged. Smaller model inputs can alter fine
+detail and motion stability; matched residual composition is not a promise
+of identical quality or a fixed FPS gain.
+
+The saved key is `DLSS5ModelScaleMode=0..3`. The large status strip shows
+`NR MODEL` separately from `FOV`; errors are reported instead of `ACTIVE`.
+Selecting FULL restores the previous model-resolution path. Flat mode ignores
+this setting; new settings use FULL, with the legacy migration described above.
 
 ## Confirm actual output, not just loading
 
 The game writes `streamline_dlaa.log` in its working directory (normally the
-game folder). For VR, successful presentation produces entries for both eyes:
+game folder). In `PER EYE` mode, successful presentation produces
+entries for both eyes:
 
 ```text
 [DLSS-NR] slot 0 1x sequential evaluation active: work ... -> output ...

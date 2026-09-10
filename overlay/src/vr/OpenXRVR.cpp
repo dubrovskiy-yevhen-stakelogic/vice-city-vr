@@ -20,6 +20,7 @@
 
 #include "OculusVR.h"
 #include "DLAA.h"
+#include "DlssNrScenePolicy.h"
 #include "FSR2.h"
 #include "MenuNavigation.h"
 #include "VrMenuInputRouting.h"
@@ -232,7 +233,9 @@ enum eVrGraphicsMenuItem
 	VR_GRAPHICS_DLSS_NR_ENABLE,
 	VR_GRAPHICS_DLSS_NR,
 	VR_GRAPHICS_DLSS_NR_PASSES,
-	VR_GRAPHICS_DLSS_NR_REGION,
+	VR_GRAPHICS_DLSS_NR_MODEL_SCALE,
+	VR_GRAPHICS_DLSS_NR_STEREO,
+	VR_GRAPHICS_DLSS_NR_FOVEATION,
 	VR_GRAPHICS_DLSS_NR_TUNING,
 	VR_GRAPHICS_EFFECTS,
 	VR_GRAPHICS_JITTER,
@@ -2098,6 +2101,12 @@ int gRenderScaleIndex = VR_RENDER_SCALE_DEFAULT;
 // backend is active; the scene renders at the mode ratio and DLSS
 // reconstructs the full render-scale image.
 int gDlssQualityMode;
+
+int SceneDlssQualityMode()
+{
+	return DlssNrScenePolicy::ResolveQualityMode(gDlssQualityMode,
+		Dlaa::IsNeuralRenderingEnabled());
+}
 // Model profile used by the DLSS-NR versus DLAA A/B switch.
 int gDlssComparisonProfile = 1;
 // Calibration modes vary Streamline's pixel-space jitter value without
@@ -2370,7 +2379,6 @@ void LoadVrSettings()
 	gRenderScale = gRenderScaleOptions[gRenderScaleIndex];
 	gDlssQualityMode = GetPrivateProfileIntA("VR", "DlssMode", 0, path);
 	gDlssQualityMode = Min(Max(gDlssQualityMode, 0), 3);
-	Dlaa::SetQualityMode(gDlssQualityMode);
 	char temporalAaText[16] = {};
 	GetPrivateProfileStringA("VR", "TemporalAA", "", temporalAaText,
 		sizeof(temporalAaText), path);
@@ -2394,9 +2402,14 @@ void LoadVrSettings()
 		GetPrivateProfileIntA("VR", "DLSSNeuralRendering", 0, path) != 0);
 	Dlaa::SetNeuralRenderingPassCount(Min(Max(GetPrivateProfileIntA("VR",
 		"DLSSNeuralPasses", 1, path), 1), 3));
-	// Old builds stored a centered NR crop independently. The neural work scale
-	// now follows the real DLSS render size so the entire eye remains processed.
-	Dlaa::SetNeuralRenderingRegionMode(gDlssQualityMode);
+	Dlaa::SetNeuralRenderingStereoMode(Min(Max(GetPrivateProfileIntA("VR",
+		"DLSS5StereoMode", 1, path), 0), 1));
+	Dlaa::SetNeuralRenderingFoveationMode(Min(Max(GetPrivateProfileIntA("VR",
+		"DLSS5FoveationMode", 1, path), 0), 3));
+	Dlaa::SetNeuralRenderingModelScaleMode(Min(Max(GetPrivateProfileIntA("VR",
+		"DLSS5ModelScaleMode", DlssNrScenePolicy::ModelScaleDefault(gDlssQualityMode,
+			Dlaa::IsNeuralRenderingEnabled()), path), 0), 3));
+	Dlaa::SetQualityMode(SceneDlssQualityMode());
 	const int savedNeuralMode = Min(Max(GetPrivateProfileIntA("VR",
 		"DLSSNeuralRenderingMode", 1, path), 0), 4);
 	gDlssComparisonProfile = Min(Max(GetPrivateProfileIntA("VR",
@@ -5194,6 +5207,17 @@ void ResetTemporalAaHistory()
 #endif
 }
 
+void RetryDlaaAfterNeuralModeChange()
+{
+#ifdef RW_D3D12
+	if(gTemporalAaBackend != TEMPORAL_AA_DLAA || !gDlaaStereoActivationFailed)
+		return;
+	gDlaaStereoActivationReady = false;
+	gDlaaStereoActivationFailed = false;
+	gDlaaStereoWarmupFrames = DLAA_ACTIVATION_WARMUP_FRAMES;
+#endif
+}
+
 void QueueTemporalAaBackendRelease(int previousBackend, int nextBackend)
 {
 #ifdef RW_D3D12
@@ -6228,37 +6252,63 @@ bool IsDlssProfileToastVisible()
 	return false;
 }
 
+const char *NeuralRenderingStatusName()
+{
+	if(!gFlatModeEnabled){
+		if(Dlaa::HasNeuralModelScaleFailed()) return "MODEL SCALE ERROR";
+		if(Dlaa::HasNeuralFoveationFailed()) return "FOVEATION ERROR";
+		if(Dlaa::HasNeuralStereoSharingFailed()) return "SHARING ERROR";
+	}
+	if(Dlaa::HasNeuralRenderingFailed()) return "ERROR";
+	return Dlaa::IsNeuralRenderingStereoActive() ? "ACTIVE" : "PREPARING";
+}
+
 void DrawDlssProfileToast()
 {
 	char value[96];
+	char details[96] = {};
+	char profile[96] = {};
 	uint8 red = 120, green = 220, blue = 255;
 	if(!Dlaa::IsNeuralRenderingEnabled()){
 		strcpy(value, "DLSS5: DISABLED");
 		red = 255; green = 150; blue = 120;
 	}else if(!Dlaa::IsNeuralRenderingOutputVisible()){
-		sprintf(value, "DLSS5 %dX %s A/B: BASELINE - NR BYPASSED",
+		sprintf(value, "DLSS5 %dX %s - BASELINE",
 			Dlaa::GetNeuralRenderingPassCount(),
 			Dlaa::GetNeuralRenderingRegionModeName());
+		strcpy(details, "NR BYPASSED");
 	}else{
-		const char *state;
-		if(Dlaa::HasNeuralRenderingFailed()){
-			state = "ERROR";
+		const char *state = NeuralRenderingStatusName();
+		if(strstr(state, "ERROR") != nil){
 			red = 255; green = 110; blue = 110;
-		}else if(Dlaa::IsNeuralRenderingStereoActive()){
-			state = "ACTIVE";
+		}else if(strcmp(state, "ACTIVE") == 0){
 			red = 120; green = 255; blue = 150;
 		}else{
-			state = "PREPARING";
 			red = 255; green = 230; blue = 100;
 		}
-		sprintf(value, "DLSS5 %dX %s A/B: %s%s - %s",
+		sprintf(value, "DLSS5 %dX %s %s - %s",
 			Dlaa::GetNeuralRenderingPassCount(),
 			Dlaa::GetNeuralRenderingRegionModeName(),
+			gFlatModeEnabled ? "FLAT" :
+				(Dlaa::GetNeuralRenderingStereoMode() == 1 ? "SHARED" : "PER EYE"),
+			state);
+		sprintf(details, "FOV %s / NR MODEL %s",
+			gFlatModeEnabled ? "OFF" : Dlaa::GetNeuralRenderingFoveationModeName(),
+			gFlatModeEnabled ? "FULL" : Dlaa::GetNeuralRenderingModelScaleModeName());
+		sprintf(profile, "A/B: %s%s",
 			Dlaa::GetNeuralRenderingModeName(),
-			Dlaa::IsNeuralRenderingTuningCustom() ? " CUSTOM" : "", state);
+			Dlaa::IsNeuralRenderingTuningCustom() ? " CUSTOM" : "");
+		if(!gFlatModeEnabled && Dlaa::HasNeuralStereoSharingFailed())
+			strcpy(details, "NR BYPASSED FOR BOTH EYES");
+		else if(!gFlatModeEnabled && Dlaa::HasNeuralModelScaleFailed())
+			strcpy(details, "MODEL SCALE FAILED - CHECK GRAPHICS");
+		else if(!gFlatModeEnabled && Dlaa::HasNeuralFoveationFailed())
+			strcpy(details, "FOVEATION FAILED - CHECK GRAPHICS");
 	}
-	FillVrMenuRect(45, 315, VR_MENU_WIDTH-45, 445, 5, 16, 26, 210);
-	DrawVrMenuText(value, VR_MENU_WIDTH/2, 355, 5, red, green, blue);
+	FillVrMenuRect(45, 315, VR_MENU_WIDTH-45, profile[0] ? 485 : 445, 5, 16, 26, 210);
+	DrawVrMenuText(value, VR_MENU_WIDTH/2, 332, 5, red, green, blue);
+	DrawVrMenuText(details, VR_MENU_WIDTH/2, 386, 4, red, green, blue);
+	DrawVrMenuText(profile, VR_MENU_WIDTH/2, 438, 4, red, green, blue);
 }
 
 void DrawVrControlsMenu()
@@ -6485,7 +6535,7 @@ bool UpdateVrMenuSwapchain()
 	if(gVrAboutVisible){
 		DrawVrMenuText(gVrAboutFirstRun ? "WELCOME TO VICE CITY VR" : "ABOUT",
 			VR_MENU_WIDTH/2, 112, 5, 100, 225, 255);
-		DrawVrMenuText("VERSION V0.5.5 ALPHA PC", VR_MENU_WIDTH/2, 157, 3,
+		DrawVrMenuText("VERSION V0.5.5.1 ALPHA PC", VR_MENU_WIDTH/2, 157, 3,
 			255, 205, 110);
 
 		FillVrMenuRect(75, 195, VR_MENU_WIDTH-75, 306,
@@ -6705,7 +6755,8 @@ bool UpdateVrMenuSwapchain()
 		static const char *dlssModeNames[4] =
 			{ "DLAA", "QUALITY", "BALANCED", "PERFORMANCE" };
 		sprintf(rows[VR_GRAPHICS_DLSS_MODE], "DLSS MODE  < %s >",
-			dlssModeNames[gDlssQualityMode&3]);
+			Dlaa::IsNeuralRenderingEnabled() ? "DLAA - FIXED FOR NR" :
+				dlssModeNames[gDlssQualityMode&3]);
 		}
 		{
 		const char *compareName =
@@ -6724,9 +6775,7 @@ bool UpdateVrMenuSwapchain()
 				"DLSS 5 %dX A/B  < BASELINE / %s >",
 				Dlaa::GetNeuralRenderingPassCount(), compareName);
 		else{
-			const char *nrState = Dlaa::HasNeuralRenderingFailed() ?
-				"ERROR" : (Dlaa::IsNeuralRenderingStereoActive() ?
-				"ACTIVE" : "PREPARING");
+			const char *nrState = NeuralRenderingStatusName();
 				sprintf(rows[VR_GRAPHICS_DLSS_NR],
 					"DLSS 5 %dX A/B  < %s - %s >",
 					Dlaa::GetNeuralRenderingPassCount(), compareName, nrState);
@@ -6736,9 +6785,18 @@ bool UpdateVrMenuSwapchain()
 			"DLSS 5 PASSES  < %dX%s >",
 			Dlaa::GetNeuralRenderingPassCount(),
 			Dlaa::GetNeuralRenderingPassCount() > 1 ? " - EXPERIMENTAL" : "");
-		sprintf(rows[VR_GRAPHICS_DLSS_NR_REGION],
-			"DLSS 5 WORK SCALE  < %s >",
-			Dlaa::GetNeuralRenderingRegionModeName());
+		sprintf(rows[VR_GRAPHICS_DLSS_NR_MODEL_SCALE],
+			"NR MODEL SCALE  < %s%s >", gFlatModeEnabled ? "VR ONLY" :
+				Dlaa::GetNeuralRenderingModelScaleModeName(),
+			!gFlatModeEnabled && Dlaa::HasNeuralModelScaleFailed() ? " - ERROR" : "");
+		sprintf(rows[VR_GRAPHICS_DLSS_NR_STEREO],
+			"DLSS 5 STEREO  < %s >", gFlatModeEnabled ? "VR ONLY" :
+				(Dlaa::HasNeuralStereoSharingFailed() ? "SHARED ERROR - NR BYPASSED" :
+				 Dlaa::GetNeuralRenderingStereoModeName()));
+		sprintf(rows[VR_GRAPHICS_DLSS_NR_FOVEATION],
+			"DLSS 5 FOVEATION  < %s%s >", gFlatModeEnabled ? "VR ONLY" :
+				Dlaa::GetNeuralRenderingFoveationModeName(),
+			!gFlatModeEnabled && Dlaa::HasNeuralFoveationFailed() ? " - ERROR" : "");
 		sprintf(rows[VR_GRAPHICS_DLSS_NR_TUNING],
 			"DLSS 5 TUNING  < OPEN%s >",
 			Dlaa::IsNeuralRenderingTuningCustom() ? " - CUSTOM" : "");
@@ -7891,12 +7949,12 @@ bool ReplaceStereoRenderTargets(float scale, bool synchronizeOldTargets)
 	// the output size.
 	float renderRatio = 1.0f;
 	if(gTemporalAaBackend == TEMPORAL_AA_DLAA)
-		renderRatio = Dlaa::GetQualityModeRenderRatio(gDlssQualityMode);
+		renderRatio = Dlaa::GetQualityModeRenderRatio(SceneDlssQualityMode());
 	int renderWidth[EYE_COUNT], renderHeight[EYE_COUNT];
 	for(int eye = 0; eye < EYE_COUNT; eye++){
 		renderWidth[eye] = (int)(gEye[eye].swapchain.width*scale*renderRatio+0.5f);
 		renderHeight[eye] = (int)(gEye[eye].swapchain.height*scale*renderRatio+0.5f);
-		if(gTemporalAaBackend == TEMPORAL_AA_DLAA && gDlssQualityMode != 0){
+		if(gTemporalAaBackend == TEMPORAL_AA_DLAA && SceneDlssQualityMode() != 0){
 			renderWidth[eye] = Max(256, renderWidth[eye] & ~15);
 			renderHeight[eye] = Max(256, renderHeight[eye] & ~15);
 		}
@@ -7995,12 +8053,12 @@ void ApplyPendingRenderScale()
 	{
 		float renderRatio = 1.0f;
 		if(gTemporalAaBackend == TEMPORAL_AA_DLAA)
-			renderRatio = Dlaa::GetQualityModeRenderRatio(gDlssQualityMode);
+			renderRatio = Dlaa::GetQualityModeRenderRatio(SceneDlssQualityMode());
 		int wantWidth =
 			(int)(gEye[0].swapchain.width*requestedScale*renderRatio+0.5f);
 		int wantHeight =
 			(int)(gEye[0].swapchain.height*requestedScale*renderRatio+0.5f);
-		if(gTemporalAaBackend == TEMPORAL_AA_DLAA && gDlssQualityMode != 0){
+		if(gTemporalAaBackend == TEMPORAL_AA_DLAA && SceneDlssQualityMode() != 0){
 			wantWidth = Max(256, wantWidth & ~15);
 			wantHeight = Max(256, wantHeight & ~15);
 		}
@@ -11608,8 +11666,10 @@ bool DrawEyeFxaa(EyeBuffer &eye, int eyeIndex)
 	return resolved;
 }
 
-bool DrawEyeDlaa(EyeBuffer &eye, int eyeIndex, RwCamera *camera)
+bool BuildEyeDlaaInput(EyeBuffer &eye, int eyeIndex, RwCamera *camera,
+	Dlaa::EyeInput &input)
 {
+	input = {};
 	if(gTemporalAaBackend != TEMPORAL_AA_DLAA ||
 	   !Dlaa::IsSupported() || !camera ||
 	   eyeIndex < 0 || eyeIndex >= EYE_COUNT || !eye.color || !eye.depth)
@@ -11632,7 +11692,6 @@ bool DrawEyeDlaa(EyeBuffer &eye, int eyeIndex, RwCamera *camera)
 	   !rw::d3d12::transitionDepthRaster(depthRaster, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE))
 		return false;
 
-	Dlaa::EyeInput input = {};
 	input.color = colorResource;
 	input.depth = depthResource;
 	input.depthShaderResourceView = depthView.ptr;
@@ -11649,6 +11708,17 @@ bool DrawEyeDlaa(EyeBuffer &eye, int eyeIndex, RwCamera *camera)
 		return false;
 	input.nearPlane = gFirstPersonEnabled ? 0.05f : gOriginalNearPlane;
 	input.farPlane = RwCameraGetFarClipPlane(camera);
+	return true;
+}
+
+bool DrawEyeDlaa(EyeBuffer &eye, int eyeIndex, RwCamera *camera,
+	const Dlaa::EyeInput *preparedInput)
+{
+	Dlaa::EyeInput input = {};
+	if(preparedInput)
+		input = *preparedInput;
+	else if(!BuildEyeDlaaInput(eye, eyeIndex, camera, input))
+		return false;
 	rw::d3d12::beginGpuTimestamp(rw::d3d12::GPU_STAGE_TEMPORAL_AA);
 	Dlaa::EyeOutput output = {};
 	const bool dlaaOk = Dlaa::EvaluateEye(eyeIndex, input, &output);
@@ -13076,15 +13146,16 @@ void ChangeVrMenuValue(int direction)
 				gFsr2StereoActivationFailed = false;
 			// The effective render size depends on the backend when a DLSS
 			// upscaling mode is selected; rebuild the targets to match.
-			if(gDlssQualityMode != 0)
+			if(SceneDlssQualityMode() != 0)
 				gRenderScaleChangePending = true;
 			}
 			break;
 		case VR_GRAPHICS_DLSS_MODE:
+			if(Dlaa::IsNeuralRenderingEnabled())
+				break;
 			gDlssQualityMode = (gDlssQualityMode+4+direction)%4;
 			SaveVrSetting("DlssMode", gDlssQualityMode);
-			SaveVrSetting("DLSSNeuralRegion", gDlssQualityMode);
-			Dlaa::SetQualityMode(gDlssQualityMode);
+			Dlaa::SetQualityMode(SceneDlssQualityMode());
 			// The scene renders at the mode's reduced size; rebuild the
 			// stereo targets through the same deferred path the render
 			// scale option uses.
@@ -13095,6 +13166,9 @@ void ChangeVrMenuValue(int direction)
 			{
 			const bool enable = !Dlaa::IsNeuralRenderingEnabled();
 			Dlaa::SetNeuralRenderingEnabled(enable);
+			Dlaa::SetQualityMode(SceneDlssQualityMode());
+			gRenderScaleChangePending = true;
+			SaveVrSetting("DLSS5ModelScaleMode", Dlaa::GetNeuralRenderingModelScaleMode());
 			if(enable){
 				Dlaa::SetNeuralRenderingMode(gDlssComparisonProfile);
 				Dlaa::SetNeuralRenderingOutputVisible(true);
@@ -13103,6 +13177,7 @@ void ChangeVrMenuValue(int direction)
 			SaveVrSetting("DLSSNeuralRenderingOutputVisible",
 				enable ? 1 : 0);
 			ResetTemporalAaHistory();
+			RetryDlaaAfterNeuralModeChange();
 			ShowDlssProfileToast();
 			}
 			break;
@@ -13129,22 +13204,40 @@ void ChangeVrMenuValue(int direction)
 			ShowDlssProfileToast();
 			}
 			break;
-		case VR_GRAPHICS_DLSS_NR_REGION:
-			{
-			const int region = (Dlaa::GetNeuralRenderingRegionMode()+4+direction)%4;
-			gDlssQualityMode = region;
-			Dlaa::SetNeuralRenderingRegionMode(region);
-			SaveVrSetting("DlssMode", gDlssQualityMode);
-			SaveVrSetting("DLSSNeuralRegion", region);
-			gRenderScaleChangePending = true;
-			ResetTemporalAaHistory();
-			ShowDlssProfileToast();
-			}
-			break;
 		case VR_GRAPHICS_DLSS_NR_TUNING:
 			gVrDlssTuningMenuVisible = true;
 			gVrGraphicsMenuVisible = false;
 			gVrDlssTuningMenuSelection = 0;
+			break;
+		case VR_GRAPHICS_DLSS_NR_STEREO:
+			if(!gFlatModeEnabled){
+				const int mode = (Dlaa::GetNeuralRenderingStereoMode()+2+direction)%2;
+				Dlaa::SetNeuralRenderingStereoMode(mode);
+				SaveVrSetting("DLSS5StereoMode", mode);
+				ResetTemporalAaHistory();
+				RetryDlaaAfterNeuralModeChange();
+				ShowDlssProfileToast();
+			}
+			break;
+		case VR_GRAPHICS_DLSS_NR_FOVEATION:
+			if(!gFlatModeEnabled){
+				const int mode = (Dlaa::GetNeuralRenderingFoveationMode()+4+direction)%4;
+				Dlaa::SetNeuralRenderingFoveationMode(mode);
+				SaveVrSetting("DLSS5FoveationMode", mode);
+				ResetTemporalAaHistory();
+				RetryDlaaAfterNeuralModeChange();
+				ShowDlssProfileToast();
+			}
+			break;
+		case VR_GRAPHICS_DLSS_NR_MODEL_SCALE:
+			if(!gFlatModeEnabled){
+				const int mode = (Dlaa::GetNeuralRenderingModelScaleMode()+4+direction)%4;
+				Dlaa::SetNeuralRenderingModelScaleMode(mode);
+				SaveVrSetting("DLSS5ModelScaleMode", mode);
+				ResetTemporalAaHistory();
+				RetryDlaaAfterNeuralModeChange();
+				ShowDlssProfileToast();
+			}
 			break;
 		case VR_GRAPHICS_EFFECTS:
 #ifdef RW_D3D12
@@ -16042,6 +16135,8 @@ bool ApplyTouchInput(CControllerState *state)
 	if(neuralComparisonToggled){
 		const bool showModel = !Dlaa::IsNeuralRenderingOutputVisible();
 		Dlaa::SetNeuralRenderingOutputVisible(showModel);
+		ResetTemporalAaHistory();
+		RetryDlaaAfterNeuralModeChange();
 		SaveVrSetting("DLSSNeuralRenderingOutputVisible",
 			showModel ? 1 : 0);
 		ShowDlssProfileToast();
@@ -18792,6 +18887,31 @@ bool SubmitStereoFrame(RwCamera *camera)
 	Fsr2::EyeOutput fsr2Outputs[EYE_COUNT] = {};
 	const bool fsr2Evaluated = fsr2Frame &&
 		EvaluateD3D12Fsr2Frame(camera, fsr2Outputs);
+	Dlaa::EyeInput neuralStereoInputs[EYE_COUNT];
+	bool neuralStereoInputsReady = false;
+	bool neuralStereoResolveFailed = false;
+	const bool pairedNeuralFrame = dlaaFrame &&
+		Dlaa::IsNeuralRenderingEnabled() && Dlaa::IsNeuralRenderingOutputVisible() &&
+		(Dlaa::GetNeuralRenderingStereoMode() == 1 ||
+		 Dlaa::GetNeuralRenderingFoveationMode() > 0 ||
+		 Dlaa::GetNeuralRenderingModelScaleMode() > 0);
+	if(pairedNeuralFrame){
+		const bool leftReady = BuildEyeDlaaInput(gEye[0], 0, camera,
+			neuralStereoInputs[0]);
+		const bool rightReady = BuildEyeDlaaInput(gEye[1], 1, camera,
+			neuralStereoInputs[1]);
+		neuralStereoInputsReady = leftReady && rightReady;
+		if(!neuralStereoInputsReady){
+			neuralStereoInputs[0] = {};
+			neuralStereoInputs[1] = {};
+		}
+		const float actualJitterX =
+			0.5f*gTemporalJitterClipX*(float)neuralStereoInputs[0].width;
+		const float actualJitterY =
+			-0.5f*gTemporalJitterClipY*(float)neuralStereoInputs[0].height;
+		Dlaa::PrepareNeuralStereoPair(neuralStereoInputs[0], neuralStereoInputs[1],
+			actualJitterX, actualJitterY);
+	}
 #endif
 	for(int eye=0;eye<EYE_COUNT;eye++){
 		bool copied = false;
@@ -18799,8 +18919,18 @@ bool SubmitStereoFrame(RwCamera *camera)
 		if(fsr2Evaluated)
 			copied = DrawEyeFsr2Output(gEye[eye], eye,
 				fsr2Outputs[eye]);
-		else if(dlaaFrame)
-			copied = DrawEyeDlaa(gEye[eye], eye, camera);
+		else if(dlaaFrame){
+			copied = DrawEyeDlaa(gEye[eye], eye, camera,
+				neuralStereoInputsReady ? &neuralStereoInputs[eye] : nil);
+			if(pairedNeuralFrame && (!copied || Dlaa::HasNeuralFoveationFailed() ||
+			   Dlaa::HasNeuralStereoSharingFailed() || Dlaa::HasNeuralModelScaleFailed())){
+				if(!neuralStereoResolveFailed)
+					Dlaa::RejectNeuralStereoPair();
+				neuralStereoResolveFailed = true;
+				gDlaaStereoActivationReady = false;
+				gDlaaStereoActivationFailed = true;
+			}
+		}
 #endif
 		if(!copied)
 			copied=DrawEyeFxaa(gEye[eye],eye);
@@ -18818,6 +18948,31 @@ bool SubmitStereoFrame(RwCamera *camera)
 		}
 	}
 #ifdef RW_D3D12
+	if(neuralStereoResolveFailed){
+		for(int eye = 0; eye < EYE_COUNT; eye++){
+			if(!DrawEyeFxaa(gEye[eye], eye)){
+				RestoreCamera(camera);
+				FinishD3D12SwapchainWrites();
+				EndXrFrame(nil, 0);
+				return false;
+			}
+		}
+	}
+	static bool neuralSharingFailureShown = false;
+	const bool neuralSharingFailed = Dlaa::HasNeuralStereoSharingFailed();
+	if(neuralSharingFailed && !neuralSharingFailureShown)
+		ShowDlssProfileToast();
+	neuralSharingFailureShown = neuralSharingFailed;
+	static bool neuralFoveationFailureShown = false;
+	const bool neuralFoveationFailed = Dlaa::HasNeuralFoveationFailed();
+	if(neuralFoveationFailed && !neuralFoveationFailureShown)
+		ShowDlssProfileToast();
+	neuralFoveationFailureShown = neuralFoveationFailed;
+	static bool neuralModelScaleFailureShown = false;
+	const bool neuralModelScaleFailed = Dlaa::HasNeuralModelScaleFailed();
+	if(neuralModelScaleFailed && !neuralModelScaleFailureShown)
+		ShowDlssProfileToast();
+	neuralModelScaleFailureShown = neuralModelScaleFailed;
 	// Temporal reconstruction and the opaque world resolve are complete. Draw
 	// controller-driven geometry now, against the preserved world depth, into a
 	// transparent scratch image, then alpha-composite it over the already
@@ -18830,11 +18985,15 @@ bool SubmitStereoFrame(RwCamera *camera)
 	CaptureWristHudFrame(&wristFrame);
 	RestoreCamera(camera);
 #ifdef RW_D3D12
-	if(dlaaFrame && !Dlaa::WasLastEvaluationSuccessful()){
+	if(dlaaFrame && (neuralStereoResolveFailed || !Dlaa::WasLastEvaluationSuccessful())){
 		gDlaaStereoActivationReady = false;
 		gDlaaStereoActivationFailed = true;
-		VrLog("DLAA real evaluation failed: %s; retaining FXAA fallback\n",
-			Dlaa::GetStatus());
+		if(neuralStereoResolveFailed)
+			VrLog("DLAA paired neural reconstruction/resolve failed: %s; retaining FXAA fallback\n",
+				Dlaa::GetStatus());
+		else
+			VrLog("DLAA real evaluation failed: %s; retaining FXAA fallback\n",
+				Dlaa::GetStatus());
 	}
 	if(fsr2Frame && !fsr2Evaluated){
 		gFsr2StereoActivationFailed = true;

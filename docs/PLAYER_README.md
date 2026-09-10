@@ -1,6 +1,6 @@
-# Vice City VR 0.5.5 - PCVR player quick start
+# Vice City VR 0.5.5.1 - PCVR player quick start
 
-Use **Vice-City-VR-v0.5.5-PCVR.zip** to play. The source-kit archive is for
+Use **Vice-City-VR-v0.5.5.1-PCVR.zip** to play. The source-kit archive is for
 developers; you do not need to compile anything to use the player archive.
 This is an experimental Windows x64 Direct3D 12 / OpenXR mod for the original
 PC Grand Theft Auto: Vice City (2003), not the Definitive Edition.
@@ -9,20 +9,20 @@ PC Grand Theft Auto: Vice City (2003), not the Definitive Edition.
 
 ### Updating an existing 0.5.5 installation
 
-This refreshed archive fixes wheel-grip acquisition and steering, the on-foot
-wrist HUD and square minimap proportions, vehicle-camera seat offsets, and
-controller input leaking from VR Settings into the game menu. Back up the old
-`reVC.exe`, then copy the updated package into the same game folder. Existing
-settings and saves are retained; rerunning setup is unnecessary if dependencies
-are already installed. For a wheel grip, release and squeeze again near its
-neutral 9/3-o'clock position, as on Quest.
+0.5.5.1 adds SHARED eye processing, central foveation and NR-only model scaling
+for optional DLSS 5. The old scene/work-scale control is removed; the original
+scene stays detailed while smaller inputs reduce neural-processing cost.
+See [DLSS 5 settings](DLSS5_SETUP.md) for defaults and migration of older settings.
+Back up the old `reVC.exe`, then copy the updated package into the same game
+folder. Existing settings and saves are retained; rerunning setup is unnecessary
+if dependencies are already installed.
 
 ### First installation
 
 1. Make a separate copy of your legally owned original Vice City installation.
    Keep your original game and saves backed up.
 2. Extract the ZIP completely. Copy the **contents** of its
-   `Vice-City-VR-v0.5.5-PCVR` folder into that game copy, beside `gta-vc.exe`.
+   `Vice-City-VR-v0.5.5.1-PCVR` folder into that game copy, beside `gta-vc.exe`.
    Do not run it inside the ZIP or from an empty folder without the game data.
 3. Install the [Microsoft Visual C++ v14 x64 Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist)
    if it is not already installed. This is a runtime, not Visual Studio.

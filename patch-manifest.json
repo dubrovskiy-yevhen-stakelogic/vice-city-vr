@@ -1,6 +1,6 @@
 {
     "schemaVersion":  1,
-    "kitVersion":  "0.5.5-alpha-pc",
+    "kitVersion":  "0.5.5.1-alpha-pc",
     "base":  {
                  "repository":  "https://github.com/mrxenginner/reVC.git",
                  "branch":  "miami",
@@ -10,7 +10,7 @@
     "patches":  [
                     {
                         "path":  "vice-city-vr.patch",
-                        "sha256":  "f6f013602a2ad90c76561958cbfddc7831f4153a0cfa586027fa0588f755dae8",
+                        "sha256":  "141a707a0bc115f1a2811bfa53bfad93564ac6f4c1299f529da4030639cde3c0",
                         "targets":  [
                                         {
                                             "path":  "CMakeLists.txt",
@@ -205,7 +205,7 @@
                                         {
                                             "path":  "src/core/Frontend.cpp",
                                             "preimageSha256":  "2fb6c704a26227bc5d8484bd0a7280e999cfa1fc164e4a33341326ca74d636da",
-                                            "postimageSha256":  "c856f207d00261d8b2bdb3c89f8f263bf9fc8fc222c12a4530b98dfb994deb43"
+                                            "postimageSha256":  "ffcb91dc43fcd4f10a375741b77f3571ed53e146067dccba304f4049f7c9fcb6"
                                         },
                                         {
                                             "path":  "src/core/Game.cpp",
@@ -713,15 +713,43 @@
                     },
                     {
                         "path":  "src/vr/DLAA.cpp",
-                        "sha256":  "a90333400265ffe02ae8389eb9f724929975e22954daba4790d7203f55fa5aba"
+                        "sha256":  "cf85ced4cbe02839a8bc5d4568de3d2deb619e44c138d2175824e5e722be6ad7"
                     },
                     {
                         "path":  "src/vr/DLAA.h",
-                        "sha256":  "ab22e132ab4c9f540af6b9ebacd55ab4c83b60039ddce048c6b7842c48258ea3"
+                        "sha256":  "3f41eb9a0fdec95ece777d8d28c69c910883c0abbf169c47500c7b8f157f72e5"
                     },
                     {
                         "path":  "src/vr/DlssNrColorInput.h",
-                        "sha256":  "7e1a0bd0304e4a532df6294d31a374dbda33bcd74b80b858a0710cc405c7592b"
+                        "sha256":  "85a724057bd330007c8e2513b086baca2d34e5fb5c02dbda03d9c1bd90df8a24"
+                    },
+                    {
+                        "path":  "src/vr/DlssNrFoveation.h",
+                        "sha256":  "fb99284f013ac7651e538dbb0b6fad1c003d8f04d2e62e511b9ceb2d3ee8e29c"
+                    },
+                    {
+                        "path":  "src/vr/DlssNrFoveationBackend.h",
+                        "sha256":  "e4db3cc0cd50c0dd82c69497703434e0bab794fba5afc5fcb4b5b45a9e5b624e"
+                    },
+                    {
+                        "path":  "src/vr/DlssNrModelScale.h",
+                        "sha256":  "5c5e99a88452624b48df1dbdb41436022760e14a50f1f38d67e74b5b9c2ab384"
+                    },
+                    {
+                        "path":  "src/vr/DlssNrModelScaleBackend.h",
+                        "sha256":  "b83347aa3ae4069f3d74f417e9ef8e5a836d3ed601775ffc04638aec80af12d0"
+                    },
+                    {
+                        "path":  "src/vr/DlssNrScenePolicy.h",
+                        "sha256":  "768d479f15b344c5362d26ba8a60b76d197c1484aa8d162b0b26cf14c5d4be4a"
+                    },
+                    {
+                        "path":  "src/vr/DlssNrStereoBackend.h",
+                        "sha256":  "f7e321af0100e71554a19b172f1646aa8e6ea6b22e24f51e7f02866f8a39fa24"
+                    },
+                    {
+                        "path":  "src/vr/DlssNrStereoShared.h",
+                        "sha256":  "2b527c5440fb886d5a187cb7c415f9746acabad109cfb727cb4edcf1be9c25b5"
                     },
                     {
                         "path":  "src/vr/FSR2.cpp",
@@ -745,7 +773,7 @@
                     },
                     {
                         "path":  "src/vr/OpenXRVR.cpp",
-                        "sha256":  "86c49183b449590c06092c603fcab2927f12bca74c61f78c1ce7489587be15c1"
+                        "sha256":  "bfc9a14d425842bf8b3a455d71583949f5fc814ef0cd5fa414c80c0d6abb3d0d"
                     },
                     {
                         "path":  "src/vr/OpenXRWristHud.h",
@@ -825,7 +853,7 @@
                     },
                     {
                         "path":  "tools/dlss/README.md",
-                        "sha256":  "be8f2fc6be91b83488012b9d6dfa67840d7da0e860c6316693f5b7127577c6db"
+                        "sha256":  "ab4c9d37816efe3f6883f9298e859d39ba166e65a19faa64879d84af9601da63"
                     },
                     {
                         "path":  "tools/performance/README.md",

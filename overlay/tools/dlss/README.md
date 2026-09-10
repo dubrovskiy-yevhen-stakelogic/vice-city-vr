@@ -43,20 +43,24 @@ license at `tools/dlss/COPYING-GPL-3.0.txt` when distributing its source.
 
 In VR Settings / Graphics, select the DLAA temporal backend, enable
 `NEURAL DLSS 5`, choose a profile and leave `DLSS 5 PASSES` at `1X` initially.
-`DLSS 5 WORK SCALE` and `DLSS MODE` control the same scene resolution:
-Full/DLAA, Quality, Balanced, or Performance. Keep the user's existing
-presentation mode; flat mode is not required for setup.
+`NR MODEL SCALE` offers Full, Quality, Balanced, or Performance without shrinking
+the original scene. With NR enabled, `DLSS MODE` stays at full-resolution DLAA;
+ordinary DLSS SR remains available when NR is disabled. Keep the user's existing
+presentation mode; flat mode is not required for setup. Model scale, foveation
+and SHARED processing are VR-only options.
 
-The full-eye render chain is:
+The VR render chain is:
 
 ```text
-scene at work resolution -> NR (1X / 2X / 3X) -> DLSS SR or 1:1 DLAA -> output
+scene -> optional central crop and model resize -> NR (1X / 2X / 3X)
+      -> neural changes composed onto original scene -> 1:1 DLAA -> output
 ```
 
-Lower work scales reduce the entire input image, not a centered region.
-NR remains a 1:1 operation at that work size. Standard DLSS reconstructs the
-result to the headset resolution. Each pass has its own temporal context and
-ping-pong outputs; the two eyes are also independent.
+Lower model scales resize only the private NR input. Foveation independently
+restricts its area; SHARED runs the pass chain on the left eye and reprojects
+the neural changes to the right. Each pass has its own temporal context and
+ping-pong outputs; PER EYE keeps independent NR contexts for both eyes.
+Both original stereo views and both final DLAA reconstructions remain separate.
 
 With empty hands, both grips + B toggles the chosen profile against its normal
 DLAA/DLSS baseline. The baseline bypasses NR evaluation. It does not cycle all
@@ -75,10 +79,11 @@ nonzero right-eye color offset with `0xBAD00005`. Depth retains its valid
 per-eye offset in the double-wide source. After NR, Streamline constants are
 submitted once per frame/viewport with the final input-history reset state.
 
-The Graphics menu reports `ACTIVE` only when both eyes evaluated NR and its
-output was successfully selected for DLSS reconstruction. A loaded plugin or
-feature creation alone is not acceptance. Look for both eye reconstruction
-lines in the current `streamline_dlaa.log`:
+The Graphics menu reports `ACTIVE` only when neural output was successfully
+selected for reconstruction in both eyes. PER EYE evaluates both separately;
+SHARED evaluates the left and validates the composed stereo pair. A loaded
+plugin or feature creation alone is not acceptance. In PER EYE mode, look for
+both eye reconstruction lines in the current `streamline_dlaa.log`:
 
 ```text
 [DLSS-NR] slot 0 1x sequential evaluation active: work ... -> output ...

@@ -5987,7 +5987,7 @@ index d6c2649..92d0fe8 100644
 +		// FONT_STANDARD uses the original game's fixed glyph atlas: its '#' slot
 +		// is an icon rather than a number sign.  Keep public-build text to the
 +		// atlas' reliable uppercase ASCII range so every language pack displays it.
-+		AsciiToUnicode("VICE CITY VR V0.5.5 ALPHA PC", releaseName);
++		AsciiToUnicode("VICE CITY VR V0.5.5.1 ALPHA PC", releaseName);
 +		AsciiToUnicode("NOT FOR SALE", releaseStatus);
 +
 +		CFont::SetBackgroundOff();

@@ -31,7 +31,7 @@ try {
     if ($VerifyOnly -and -not [string]::IsNullOrWhiteSpace($RestoreBackup)) {
         throw '-VerifyOnly cannot be combined with -RestoreBackup.'
     }
-    Write-Host 'Vice City VR 0.5.5 - DLSS 5 Setup' -ForegroundColor Cyan
+    Write-Host 'Vice City VR 0.5.5.1 - DLSS 5 Setup' -ForegroundColor Cyan
     Write-Host 'No compiler, Git, administrator rights or VR headset is needed for setup.'
     Write-Host 'The game is never launched and VR/settings files are not changed.'
     Write-Host ''

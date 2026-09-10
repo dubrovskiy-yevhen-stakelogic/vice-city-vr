@@ -44,12 +44,67 @@ multiplied by the pass count and they are not recommended for VR frame rates.
 The desktop F11 panel can change `PASSES`, while F12 restores 1X; the choice is
 saved as `DLSSNeuralPasses=1..3` in `vr_settings.ini`.
 
-`DLSS 5 WORK SCALE` selects FULL, QUALITY, BALANCED or PERFORMANCE. It shares
-the scene-resolution choice with `DLSS MODE`. The entire eye image is rendered
-at the work resolution, processed by NR, then reconstructed once by ordinary
-DLSS SR (or 1:1 DLAA at Full). The former centered-region/feather path is no
-longer used. Both grips + B compares one selected model profile against the
-normal baseline, with NR bypassed in the baseline view.
+The old `SCENE SCALE` / `DLSS 5 WORK SCALE` control is removed. NR now keeps the
+scene at the selected headset render scale, with full-resolution DLAA for both
+the enhanced image and the A/B baseline. `DLSS MODE` is locked to DLAA while NR
+is enabled; disabling NR restores the saved ordinary DLAA/DLSS SR choice.
+Both grips + B compares one selected model profile against the normal baseline,
+with NR bypassed in the baseline view.
+
+`NR MODEL SCALE` changes only the resolution of the copy sent to NR: FULL
+100% (default), QUALITY 75%, BALANCED 67%, or PERFORMANCE 50% per dimension.
+It does not change scene rendering or headset resolution, and
+does not add another DLSS reconstruction pass. With foveation enabled the
+percentage applies to its central crop; otherwise it applies to the full eye.
+The reduced modes compare the model output with the matching downsampled
+original, then add that neural difference back to the original scene color.
+The full-resolution scene remains the base instead of being replaced by a
+blurred enlargement. FULL bypasses this additional scaling/composition path.
+
+This separate VR-only experiment requires the direct NR backend. It is saved
+as `DLSS5ModelScaleMode=0..3`, reports failures explicitly, and can be combined
+with SHARED and foveation. Start at 1X; compare FULL against QUALITY with the
+same headset render scale, profile and head motion. Preserving the original base does
+not guarantee identical neural detail, temporal stability or an FPS increase.
+
+For older NR-enabled settings without `DLSS5ModelScaleMode`, the saved
+`DlssMode` level supplies the initial model-scale choice. Explicit model-scale
+settings, including FULL, take priority. The old `DLSSNeuralRegion` key is ignored.
+
+When DLSS 5 is enabled, `DLSS 5 STEREO` defaults to `SHARED (EXPERIMENTAL)`.
+The shared mode runs the selected NR pass chain on the left eye, then uses both eyes'
+depth and camera transforms to transfer its color changes to the right eye.
+Both eyes retain their own scene render and DLAA/DLSS reconstruction; this is
+not a duplicated mono image or frame generation. Newly exposed or unreliable
+pixels keep the original scene color. Check foliage, vehicles and depth edges
+while moving your head: this mode can introduce differences between eyes and
+has no guaranteed FPS gain. It does not affect flat mode.
+
+The choice is saved as `DLSS5StereoMode=0..1` in `vr_settings.ini`. If sharing
+fails, the menu and temporary status strip show an error and NR is bypassed
+for both eyes. Ordinary reconstruction keeps its existing error fallback.
+Switch back to `PER EYE` to restore independent neural rendering.
+
+`DLSS 5 FOVEATION` defaults to QUALITY when DLSS 5 is enabled. It restricts NR
+to a fixed central part of the work-resolution image: approximately 85% of
+the width and height in QUALITY, 75% in BALANCED, or 65% in PERFORMANCE.
+Crop dimensions are aligned to 16 pixels. The neural result is feathered
+into the original peripheral scene color before ordinary DLAA/DLSS reconstructs
+the full image. This is not VRS, eye tracking, another scene-scale setting, or
+a ReShade injector; it can be combined with SHARED and 1X/2X/3X NR passes.
+This experiment requires the direct NR backend; other backend paths report
+an explicit error. The central-region idea has a related implementation in
+[Cheeky Foveated DLSS](https://github.com/ClarkCheekyKent/CheekyFoveatedDLSS),
+but this renderer does not bundle or require that injector.
+
+DLSS 5 itself remains OFF until selected. Missing stereo/foveation settings
+use SHARED/QUALITY; existing saved choices, including PER EYE and OFF, are
+preserved. The saved key is `DLSS5FoveationMode=0..3`. The status strip identifies
+`FOV` and the selected mode, and reports foveation failures rather than `ACTIVE`.
+Compare OFF against the other modes while moving your head and looking away
+from the center: feathering can still leave visible changes in detail, tone
+or motion near the processing boundary. The smaller NR area does not imply a
+fixed FPS gain. Flat mode ignores this setting.
 
 For the external runtime filenames, installation boundaries, and actual
 activation checks, see [DLSS5_SETUP.md](DLSS5_SETUP.md).
