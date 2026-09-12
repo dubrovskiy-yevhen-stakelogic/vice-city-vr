@@ -70,6 +70,14 @@ function New-TestGame {
     return $path
 }
 
+function Add-TestGameData([string]$Game) {
+    foreach ($relative in @('data\gta-vc.dat', 'models\gta3.img')) {
+        $path = Join-Path $Game $relative
+        [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($path))
+        [IO.File]::WriteAllText($path, 'Synthetic game-data marker; not a playable asset.')
+    }
+}
+
 function Get-TestSnapshot([string]$Root) {
     $result = @{}
     foreach ($file in Get-ChildItem -LiteralPath $Root -File) {
@@ -181,6 +189,51 @@ Invoke-Test 'source kit folder rejected' {
     Assert-TestThrows { Get-DlssGameDirectory $game } 'source kit'
 }
 
+Invoke-Test 'installed game with source-kit metadata accepted without changing it' {
+    $game = New-TestGame
+    Add-TestGameData $game
+    [IO.File]::WriteAllText((Join-Path $game 'patch-manifest.json'), '{}')
+    $before = Get-TestSnapshot $game
+    Assert-Test ((Get-DlssGameDirectory $game) -eq $game) 'A real game layout was rejected because of leftover metadata.'
+    Assert-TestSnapshot $before $game
+}
+
+Invoke-Test 'source-only folder rejected without creating runtime files' {
+    $source = New-TestDirectory 'source-only'
+    [IO.File]::WriteAllText((Join-Path $source 'patch-manifest.json'), '{}')
+    $before = Get-TestSnapshot $source
+    Assert-TestThrows { Get-DlssGameDirectory $source } 'source kit'
+    Assert-TestSnapshot $before $source
+}
+
+Invoke-Test 'metadata guard rejects missing, empty and directory-only game-data markers' {
+    foreach ($relative in @('data\gta-vc.dat', 'models\gta3.img')) {
+        foreach ($kind in @('missing', 'empty', 'directory')) {
+            $game = New-TestGame
+            Add-TestGameData $game
+            [IO.File]::WriteAllText((Join-Path $game 'patch-manifest.json'), '{}')
+            $path = Join-Path $game $relative
+            Remove-Item -LiteralPath $path
+            if ($kind -eq 'empty') { [IO.File]::WriteAllText($path, '') }
+            if ($kind -eq 'directory') { [void][IO.Directory]::CreateDirectory($path) }
+            Assert-TestThrows { Get-DlssGameDirectory $game } 'source kit'
+        }
+    }
+}
+
+Invoke-Test 'metadata does not bypass missing or invalid x64 game binaries' {
+    foreach ($name in @('reVC.exe', 'nvngx.dll_dlssnr.dll')) {
+        $game = New-TestGame
+        Add-TestGameData $game
+        [IO.File]::WriteAllText((Join-Path $game 'patch-manifest.json'), '{}')
+        $path = Join-Path $game $name
+        Remove-Item -LiteralPath $path
+        Assert-TestThrows { Get-DlssGameDirectory $game } ('Missing ' + [regex]::Escape($name))
+        New-TestPe $path 44 0x14c
+        Assert-TestThrows { Get-DlssGameDirectory $game } 'x64'
+    }
+}
+
 Invoke-Test 'alternate data stream path rejected' {
     Assert-TestThrows { Assert-DlssPlainPath (Join-Path $script:FixtureRoot 'file.dll:payload') } 'Alternate data stream|format is not supported'
 }
@@ -199,6 +252,23 @@ Invoke-Test 'running game guard refuses without terminating process' {
 # Transaction tests operate only on synthetic PE data; no fixture is executable.
 $script:ActualGuard = ${function:Assert-DlssGameClosed}
 function Assert-DlssGameClosed { }
+
+Invoke-Test 'BASE and NR install and restore preserve game files and source metadata' {
+    foreach ($profile in @('BASE', 'RTX50', 'RTX40')) {
+        $game = New-TestGame
+        Add-TestGameData $game
+        [IO.File]::WriteAllText((Join-Path $game 'patch-manifest.json'), '{}')
+        $before = Get-TestSnapshot $game
+        $dataBefore = Get-DlssHash (Join-Path $game 'models\gta3.img')
+        $specs = if ($profile -eq 'BASE') { $script:BaseSpecs } else { $script:Specs }
+        $backup = Install-DlssFiles $game $script:Stage $specs $profile
+        foreach ($spec in $specs) { Assert-DlssPayload (Join-Path $game $spec.name) $spec }
+        Assert-Test ((Get-DlssHash (Join-Path $game 'patch-manifest.json')) -eq $before['patch-manifest.json']) 'Metadata was modified.'
+        Assert-Test ((Get-DlssHash (Join-Path $game 'models\gta3.img')) -eq $dataBefore) 'Game data was modified.'
+        Restore-DlssBackup $game $backup
+        Assert-TestSnapshot $before $game
+    }
+}
 
 Invoke-Test 'incomplete and duplicate runtime sets rejected before writes' {
     $game = New-TestGame

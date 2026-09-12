@@ -94,7 +94,14 @@ function Get-DlssGameDirectory([string]$GameDir) {
         throw "Game folder does not exist: $root"
     }
     if (Test-Path -LiteralPath (Join-Path $root 'patch-manifest.json')) {
-        throw 'Select your installed game, not the patch-only source kit.'
+        # Source metadata can remain after an update over a playable game.
+        # Distinguish that layout from an unassembled kit without deleting it.
+        foreach ($relative in @('data\gta-vc.dat', 'models\gta3.img')) {
+            $asset = Get-Item -LiteralPath (Join-Path $root $relative) -Force -ErrorAction SilentlyContinue
+            if ($null -eq $asset -or $asset.PSIsContainer -or $asset.Length -eq 0) {
+                throw "This folder contains patch-only source kit metadata but is missing game data: $relative. Select reVC.exe in your complete Vice City VR game installation."
+            }
+        }
     }
     foreach ($name in @('reVC.exe', 'nvngx.dll_dlssnr.dll')) {
         $path = Assert-DlssPlainPath (Join-Path $root $name)

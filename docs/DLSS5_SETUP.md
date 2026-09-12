@@ -42,6 +42,18 @@ backup if you manually update DLLs later. Reinstalling an identical set changes
 nothing. Verified downloads are cached in the local application data directory
 under `ViceCityVR/DLSS5Cache`; they can be reused on another run.
 
+### Setup says the game folder is a source kit
+
+Older setup scripts reject any folder containing `patch-manifest.json`, even
+when a working game is installed there. This can affect updates that leave
+source-kit metadata beside `reVC.exe`.
+
+Use the corrected setup scripts; there is no need to delete or rename metadata.
+The installer accepts this mixed layout when `data/gta-vc.dat` and
+`models/gta3.img` are present and nonempty, and still validates the x64 game
+executable and project forwarder. A source-only folder remains rejected.
+Runtime checksums, signature policies, backup and restore are unchanged.
+
 ### Download sources and limitations
 
 The catalog in `tools/dlss/packages.json` pins URLs, archive and DLL SHA-256

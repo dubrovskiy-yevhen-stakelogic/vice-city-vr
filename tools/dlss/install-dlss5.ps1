@@ -159,8 +159,7 @@ try {
 } catch {
     Write-Host ''
     Write-Host ('SETUP STOPPED: ' + $_.Exception.Message) -ForegroundColor Red
-    Write-Host 'Do not download a replacement with the same filename from a random site to bypass verification.'
-    Write-Host 'If Windows blocked access, extract the game to a writable folder; do not disable antivirus or certificate checks.'
+    Write-Host 'Keep the full setup output when reporting this error. Do not disable file verification or Windows protections.'
     exit 1
 } finally {
     if ($stage -and (Test-Path -LiteralPath $stage -PathType Container)) {
