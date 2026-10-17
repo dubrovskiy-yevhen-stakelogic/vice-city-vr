@@ -22,6 +22,8 @@ For a first installation without DLSS 5, run [`SETUP_RUNTIME.bat`](SETUP_RUNTIME
 instead. It installs the required Streamline runtime and ordinary DLAA/DLSS SR
 files, without downloading the Neural Rendering model or enabling any effects.
 The [player quick start](docs/PLAYER_README.md) explains which archive to use.
+On Linux, run [`SETUP_RUNTIME_LINUX.sh`](SETUP_RUNTIME_LINUX.sh) instead and
+see the [Linux / Proton guide](docs/LINUX.md).
 
 ## What changes from the original game
 

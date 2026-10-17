@@ -102,6 +102,10 @@ self-contained and can also be distributed as a small support download without
 replacing the game executable or a player's settings. Keep cutscene mode opt-in;
 the log's successful frame submission does not detect a black headset image.
 
+Also include `SETUP_RUNTIME_LINUX.sh` beside `reVC.exe`,
+`tools/dlss/install-runtime-linux.py` next to `packages.json`, and
+`docs/LINUX.md`. Keep the shell script's LF line endings and executable bit.
+
 ## 5. Publish from clean history
 
 

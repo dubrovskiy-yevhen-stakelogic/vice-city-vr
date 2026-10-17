@@ -38,6 +38,10 @@ backups of replaced DLLs. It does not launch the game or modify VR preferences.
 Review the sources and terms before accepting. If you do not accept them, use
 the manual dependency instructions in `docs/DLSS5_SETUP.md`.
 
+On Linux, the game runs through Steam Play / Proton. Use
+**SETUP_RUNTIME_LINUX.sh** instead of steps 3 and 4 and follow the
+[Linux / Proton guide](LINUX.md).
+
 The game starts in VR by default. No `vr_settings.ini`, saves or personal
 calibrations are supplied, so an upgrade retains your existing preferences.
 Expensive new effects and Neural Rendering are opt-in on a fresh installation.

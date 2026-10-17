@@ -33,6 +33,16 @@ under the game's `dlss5-backups` folder. Newer manual DLL changes are preserved
 by refusing a conflicting restore. Cached downloads can be reused, but their
 hashes are rechecked. No NVIDIA binaries are included in this setup package.
 
+## Linux
+
+`SETUP_RUNTIME_LINUX.sh` runs `install-runtime-linux.py` (Python 3 standard
+library only) with the same `packages.json`. It offers the BASE profile, the
+same download host allowlist, size and SHA-256 checks, PE32+ x64 checks,
+`dlss5-backups` journal and Restore. Authenticode signatures are not checked on
+Linux; the pinned hashes identify the signed files. Use `--verify-only
+--no-prompt --accept-community-runtime` for a download check without a game
+folder. See [the Linux guide](../../docs/LINUX.md).
+
 ## Maintainer checks
 
 Run `test-installer.ps1` with Windows PowerShell 5.1 for offline fixture tests.
