@@ -102,6 +102,13 @@ self-contained and can also be distributed as a small support download without
 replacing the game executable or a player's settings. Keep cutscene mode opt-in;
 the log's successful frame submission does not detect a black headset image.
 
+The player package must also contain the `TEXT/` and `models/` folders from the
+assembled tree's `gamefiles/` directory, copied beside `reVC.exe` as reVC's own
+release archives do. This executable reads its menu strings (`TEXT/*.gxt`) and
+frontend textures (`models/*.txd`) from there; without them the menus show no
+text (issue #16). A development folder that already holds these files hides
+the omission, so test the extracted ZIP over an untouched game copy.
+
 ## 5. Publish from clean history
 
 

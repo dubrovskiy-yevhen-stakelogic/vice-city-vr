@@ -100,6 +100,10 @@ to change back. See `docs/CUTSCENE_MODE.md` for details.
   linked above, not individual replacement DLLs.
 - `mss32.dll` missing: you are running a different/old EXE. This package uses
   OpenAL, not Miles. Check that you extracted the complete new archive.
+- Menus without text: the package is missing reVC's game text and frontend
+  files. Copy the `TEXT` and `models` folders from `gamefiles` of reVC commit
+  `026cd10f3fdbd92c089830e5067c4457c53c1b51` into the game folder beside
+  `reVC.exe`, replacing existing files. Back up the original folders first.
 - A blank/flat headset view: check the active PC OpenXR runtime and connection.
   If upgrading, check that your own `vr_settings.ini` does not enable FlatMode.
 - Do not download individual missing DLLs from random sites or disable Windows
