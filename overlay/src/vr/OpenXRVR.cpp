@@ -8712,6 +8712,28 @@ bool EndXrFrame(const XrCompositionLayerBaseHeader *const *layers, uint32_t coun
 {
 	if(!gFrameBegun)
 		return false;
+	// Proton's wineopenxr sizes every converted layer after layers[0]. With a
+	// projection first, each following quad overflows into the next one and
+	// SteamVR rejects the frame with XR_ERROR_POSE_INVALID. A tiny quad first,
+	// hidden under the opaque projection, makes every converted slot quad-sized.
+	const XrCompositionLayerBaseHeader *guarded[16];
+	static XrCompositionLayerQuad guardQuad;
+	if(count >= 3 && count < 16 && layers[0] &&
+	   layers[0]->type == XR_TYPE_COMPOSITION_LAYER_PROJECTION){
+		const XrCompositionLayerQuad *firstQuad = nil;
+		for(uint32_t i = 1; i < count && !firstQuad; i++)
+			if(layers[i] && layers[i]->type == XR_TYPE_COMPOSITION_LAYER_QUAD)
+				firstQuad = (const XrCompositionLayerQuad*)layers[i];
+		if(firstQuad){
+			guardQuad = *firstQuad;
+			guardQuad.next = nil;
+			guardQuad.size.width = guardQuad.size.height = 0.001f;
+			guarded[0] = (const XrCompositionLayerBaseHeader*)&guardQuad;
+			for(uint32_t i = 0; i < count; i++) guarded[i+1] = layers[i];
+			layers = guarded;
+			count++;
+		}
+	}
 	XrFrameEndInfo end = { XR_TYPE_FRAME_END_INFO };
 	end.displayTime = gFrameState.predictedDisplayTime;
 	end.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
