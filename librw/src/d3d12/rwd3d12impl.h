@@ -319,6 +319,8 @@ bool32 copyCurrentBackBufferToExternal(ID3D12Resource *destination);
 // Copies an external texture over the current back buffer on the open frame
 // list; sourceState is the resource's current state and is restored after.
 bool32 copyExternalToCurrentBackBuffer(ID3D12Resource *source, uint32 sourceState);
+// The open frame's back buffer, in RENDER_TARGET state until the frame ends.
+bool32 getCurrentBackBuffer(ID3D12Resource **resource);
 // Clears an external swapchain image (RENDER_TARGET state) to opaque black.
 bool32 clearExternalTexture(ID3D12Resource *destination);
 // Same clear with no CPU-side GPU wait, for callers holding acquired OpenXR

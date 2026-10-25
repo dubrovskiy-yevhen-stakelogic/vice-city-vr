@@ -802,6 +802,9 @@ bool gFlatModeEnabled = false;
 // camera engaged permanently while FlatMode is on, movement included. The V
 // key toggles it against classic third person at runtime.
 bool gFlatFirstPersonEnabled = true;
+// Desktop window during VR: 0 = unchanged, 1 = left eye filling the window
+// (cropped), 2 = whole left eye with black bars. The headset is unaffected.
+int gDesktopMirrorMode = 0;
 bool gFlatViewKeyWasDown;
 uint32 gTemporalAaReleasePending;
 bool gDlaaStereoActivationReady;
@@ -2157,6 +2160,11 @@ ID3D12PipelineState *gTrackedForegroundResolvePipeline;
 bool gTrackedForegroundResolveAvailable;
 void DestroyTrackedForegroundResolvePipeline();
 bool EnsureTrackedForegroundResolvePipeline();
+ID3D12RootSignature *gDesktopMirrorRootSignature;
+ID3D12PipelineState *gDesktopMirrorPipeline;
+DXGI_FORMAT gDesktopMirrorFormat;
+bool gDesktopMirrorFailed;
+void DestroyDesktopMirrorPipeline();
 #endif
 Swapchain gHudSwapchain;
 Swapchain gWristHudSwapchain;
@@ -2395,6 +2403,8 @@ void LoadVrSettings()
 	gFlatModeEnabled = GetPrivateProfileIntA("VR", "FlatMode", 0, path) != 0;
 	gFlatFirstPersonEnabled =
 		GetPrivateProfileIntA("VR", "FlatFirstPerson", 1, path) != 0;
+	gDesktopMirrorMode = Min(Max(GetPrivateProfileIntA("VR", "DesktopMirror",
+		0, path), 0), 2);
 	// Keep loading the experimental model behind an explicit opt-in, but allow
 	// that opt-in in both flat and OpenXR sessions. Presentation mode 0 is a
 	// cheap DLAA baseline; 1..4 are fullscreen feature-18 model profiles.
@@ -8113,6 +8123,7 @@ void DestroySessionResources()
 	rw::d3d12::setPresentInterval(gFlatModeEnabled ?
 		(uint32)FrontEndMenuManager.m_PrefsVsync : 1u);
 	DestroyTrackedForegroundResolvePipeline();
+	DestroyDesktopMirrorPipeline();
 #endif
 	DestroyStereoRenderTargets();
 	for(int eye = 0; eye < EYE_COUNT; eye++){
@@ -11424,6 +11435,300 @@ bool EnsureTrackedForegroundResolvePipeline()
 		return false;
 	}
 	return true;
+}
+
+void DestroyDesktopMirrorPipeline()
+{
+	if(gDesktopMirrorPipeline){
+		gDesktopMirrorPipeline->Release();
+		gDesktopMirrorPipeline = nil;
+	}
+	if(gDesktopMirrorRootSignature){
+		gDesktopMirrorRootSignature->Release();
+		gDesktopMirrorRootSignature = nil;
+	}
+}
+
+bool EnsureDesktopMirrorPipeline(DXGI_FORMAT targetFormat)
+{
+	if(gDesktopMirrorPipeline && gDesktopMirrorRootSignature &&
+	   gDesktopMirrorFormat == targetFormat)
+		return true;
+	// A failed compile would otherwise be retried every frame.
+	if(gDesktopMirrorFailed)
+		return false;
+	DestroyDesktopMirrorPipeline();
+	ID3D12Device *device = rw::d3d12::getDevice();
+	if(!device)
+		return false;
+	gDesktopMirrorFailed = true;
+
+	D3D12_DESCRIPTOR_RANGE range = {};
+	range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	range.NumDescriptors = 1;
+	range.BaseShaderRegister = 0;
+	range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	D3D12_ROOT_PARAMETER params[2] = {};
+	params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+	params[0].Constants.ShaderRegister = 0;
+	params[0].Constants.Num32BitValues = 6;
+	params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	params[1].DescriptorTable.NumDescriptorRanges = 1;
+	params[1].DescriptorTable.pDescriptorRanges = &range;
+	params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	D3D12_STATIC_SAMPLER_DESC sampler = {};
+	sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+	sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler.MaxLOD = D3D12_FLOAT32_MAX;
+	sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	D3D12_ROOT_SIGNATURE_DESC signature = {};
+	signature.NumParameters = 2;
+	signature.pParameters = params;
+	signature.NumStaticSamplers = 1;
+	signature.pStaticSamplers = &sampler;
+	ID3DBlob *serialized = nil;
+	ID3DBlob *errors = nil;
+	HRESULT result = D3D12SerializeRootSignature(&signature,
+		D3D_ROOT_SIGNATURE_VERSION_1, &serialized, &errors);
+	if(FAILED(result)){
+		if(errors)
+			VrLog("Desktop mirror root signature: %s\n",
+				(const char*)errors->GetBufferPointer());
+		if(errors) errors->Release();
+		if(serialized) serialized->Release();
+		return false;
+	}
+	if(errors) errors->Release();
+	result = device->CreateRootSignature(0, serialized->GetBufferPointer(),
+		serialized->GetBufferSize(), IID_PPV_ARGS(&gDesktopMirrorRootSignature));
+	serialized->Release();
+	if(FAILED(result)){
+		DestroyDesktopMirrorPipeline();
+		return false;
+	}
+
+	// Four bilinear taps a quarter of a window pixel apart average roughly a
+	// 4x4 texel footprint, enough to keep the ~3x downscale from shimmering.
+	static const char *shaderSource =
+		"cbuffer Constants : register(b0) { float2 uvScale; float2 uvOffset;"
+		" float2 tapStep; };"
+		"Texture2D image : register(t0); SamplerState imageSampler : register(s0);"
+		"struct VSOut { float4 position : SV_POSITION; float2 uv : TEXCOORD0; };"
+		"VSOut VSMain(uint id : SV_VertexID) { VSOut output;"
+		" float2 position=id==0?float2(-1.0,-1.0):"
+		"                 id==1?float2(-1.0,3.0):float2(3.0,-1.0);"
+		" output.position=float4(position,0.0,1.0);"
+		" output.uv=float2((position.x+1.0)*0.5,(1.0-position.y)*0.5);"
+		" return output; }"
+		"float4 PSMain(VSOut input) : SV_TARGET {"
+		" float2 uv=input.uv*uvScale+uvOffset;"
+		" if(any(uv<0.0)||any(uv>1.0)) return float4(0.0,0.0,0.0,1.0);"
+		" float3 colour="
+		"  image.Sample(imageSampler,uv+float2(-tapStep.x,-tapStep.y)).rgb+"
+		"  image.Sample(imageSampler,uv+float2( tapStep.x,-tapStep.y)).rgb+"
+		"  image.Sample(imageSampler,uv+float2(-tapStep.x, tapStep.y)).rgb+"
+		"  image.Sample(imageSampler,uv+float2( tapStep.x, tapStep.y)).rgb;"
+		" return float4(colour*0.25,1.0); }";
+	ID3DBlob *vertexShader = nil;
+	ID3DBlob *pixelShader = nil;
+	errors = nil;
+	result = D3DCompile(shaderSource, strlen(shaderSource),
+		"desktop_mirror", nil, nil, "VSMain", "vs_5_0", 0, 0,
+		&vertexShader, &errors);
+	if(FAILED(result)){
+		if(errors)
+			VrLog("Desktop mirror vertex shader: %s\n",
+				(const char*)errors->GetBufferPointer());
+		if(errors) errors->Release();
+		if(vertexShader) vertexShader->Release();
+		DestroyDesktopMirrorPipeline();
+		return false;
+	}
+	if(errors){ errors->Release(); errors = nil; }
+	result = D3DCompile(shaderSource, strlen(shaderSource),
+		"desktop_mirror", nil, nil, "PSMain", "ps_5_0", 0, 0,
+		&pixelShader, &errors);
+	if(FAILED(result)){
+		if(errors)
+			VrLog("Desktop mirror pixel shader: %s\n",
+				(const char*)errors->GetBufferPointer());
+		if(errors) errors->Release();
+		vertexShader->Release();
+		if(pixelShader) pixelShader->Release();
+		DestroyDesktopMirrorPipeline();
+		return false;
+	}
+	if(errors) errors->Release();
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = {};
+	desc.pRootSignature = gDesktopMirrorRootSignature;
+	desc.VS.pShaderBytecode = vertexShader->GetBufferPointer();
+	desc.VS.BytecodeLength = vertexShader->GetBufferSize();
+	desc.PS.pShaderBytecode = pixelShader->GetBufferPointer();
+	desc.PS.BytecodeLength = pixelShader->GetBufferSize();
+	desc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	desc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+	desc.RasterizerState.DepthClipEnable = TRUE;
+	desc.BlendState.RenderTarget[0].RenderTargetWriteMask =
+		D3D12_COLOR_WRITE_ENABLE_ALL;
+	desc.DepthStencilState.DepthEnable = FALSE;
+	desc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+	desc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+	desc.SampleMask = UINT_MAX;
+	desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	desc.NumRenderTargets = 1;
+	desc.RTVFormats[0] = targetFormat;
+	desc.SampleDesc.Count = 1;
+	result = device->CreateGraphicsPipelineState(&desc,
+		IID_PPV_ARGS(&gDesktopMirrorPipeline));
+	vertexShader->Release();
+	pixelShader->Release();
+	if(FAILED(result)){
+		DestroyDesktopMirrorPipeline();
+		return false;
+	}
+	gDesktopMirrorFormat = targetFormat;
+	gDesktopMirrorFailed = false;
+	return true;
+}
+
+// Draws the finished left eye into the desktop back buffer so spectators see
+// the headset view. Runs while the frame list and the acquired eye image are
+// both still open, right before they are submitted and released.
+void DrawDesktopMirror()
+{
+	if(gDesktopMirrorMode == 0 || !gEye[0].swapchain.acquired ||
+	   gEye[0].swapchain.width <= 0 || gEye[0].swapchain.height <= 0)
+		return;
+	ID3D12Resource *target = nil;
+	ID3D12Resource *source = AcquiredTexture(gEye[0].swapchain);
+	if(!source || !rw::d3d12::getCurrentBackBuffer(&target) || !target)
+		return;
+	const D3D12_RESOURCE_DESC sourceDesc = source->GetDesc();
+	const D3D12_RESOURCE_DESC targetDesc = target->GetDesc();
+	// The eye holds display-referred values, as does the UNORM back buffer.
+	// Read a typeless image as UNORM. An sRGB image decodes on read, so write
+	// through an sRGB view of the back buffer to encode it again unchanged.
+	const bool srgbSource =
+		sourceDesc.Format == DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+	const DXGI_FORMAT sourceFormat =
+		sourceDesc.Format == DXGI_FORMAT_R8G8B8A8_TYPELESS ?
+		DXGI_FORMAT_R8G8B8A8_UNORM : sourceDesc.Format;
+	const DXGI_FORMAT targetFormat = srgbSource ?
+		DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
+	if(!EnsureDesktopMirrorPipeline(targetFormat))
+		return;
+	ID3D12Device *device = rw::d3d12::getDevice();
+	ID3D12GraphicsCommandList *list = rw::d3d12::getCommandList();
+	ID3D12DescriptorHeap *heap = rw::d3d12::getShaderResourceHeap();
+	if(!device || !list || !heap)
+		return;
+	D3D12_CPU_DESCRIPTOR_HANDLE sourceCpu = {};
+	D3D12_GPU_DESCRIPTOR_HANDLE sourceGpu = {};
+	D3D12_CPU_DESCRIPTOR_HANDLE targetView = {};
+	uint32 sourceIndex = UINT32_MAX;
+	uint32 targetIndex = UINT32_MAX;
+	if(!rw::d3d12::allocateShaderResourceDescriptor(&sourceCpu, &sourceGpu,
+	   &sourceIndex))
+		return;
+	if(!rw::d3d12::allocateRenderTargetDescriptor(&targetView, &targetIndex)){
+		rw::d3d12::deferDescriptorRelease(sourceIndex, UINT32_MAX, UINT32_MAX);
+		return;
+	}
+	D3D12_SHADER_RESOURCE_VIEW_DESC sourceViewDesc = {};
+	sourceViewDesc.Format = sourceFormat;
+	sourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	sourceViewDesc.Shader4ComponentMapping =
+		D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	sourceViewDesc.Texture2D.MipLevels = 1;
+	device->CreateShaderResourceView(source, &sourceViewDesc, sourceCpu);
+	D3D12_RENDER_TARGET_VIEW_DESC targetViewDesc = {};
+	targetViewDesc.Format = targetFormat;
+	targetViewDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+	device->CreateRenderTargetView(target, &targetViewDesc, targetView);
+
+	const float sourceWidth = (float)gEye[0].swapchain.width;
+	const float sourceHeight = (float)gEye[0].swapchain.height;
+	const float targetWidth = (float)targetDesc.Width;
+	const float targetHeight = (float)targetDesc.Height;
+	const float sourceAspect = sourceWidth/sourceHeight;
+	const float targetAspect = targetWidth/targetHeight;
+	// Fraction of the eye image spanned by the window on each axis.
+	float spanX = 1.0f;
+	float spanY = 1.0f;
+	float centreX = 0.5f;
+	float centreY = 0.5f;
+	if(gDesktopMirrorMode == 1){
+		// Crop the axis that is too long. Centre on the optical axis, which
+		// sits off the image centre in asymmetric headset frusta.
+		if(targetAspect > sourceAspect)
+			spanY = sourceAspect/targetAspect;
+		else
+			spanX = targetAspect/sourceAspect;
+		const XrFovf &fov = gRenderFov[0];
+		const float left = -tanf(fov.angleLeft);
+		const float right = tanf(fov.angleRight);
+		const float up = tanf(fov.angleUp);
+		const float down = -tanf(fov.angleDown);
+		if(left+right > 0.0f)
+			centreX = left/(left+right);
+		if(up+down > 0.0f)
+			centreY = up/(up+down);
+		centreX = Min(Max(centreX, spanX*0.5f), 1.0f-spanX*0.5f);
+		centreY = Min(Max(centreY, spanY*0.5f), 1.0f-spanY*0.5f);
+	}else{
+		// Pad the axis that is too short; the shader fills it with black.
+		if(targetAspect > sourceAspect)
+			spanX = targetAspect/sourceAspect;
+		else
+			spanY = sourceAspect/targetAspect;
+	}
+	struct Constants {
+		float uvScale[2];
+		float uvOffset[2];
+		float tapStep[2];
+	} constants = {};
+	constants.uvScale[0] = spanX;
+	constants.uvScale[1] = spanY;
+	constants.uvOffset[0] = centreX-spanX*0.5f;
+	constants.uvOffset[1] = centreY-spanY*0.5f;
+	constants.tapStep[0] = 0.25f*spanX/targetWidth;
+	constants.tapStep[1] = 0.25f*spanY/targetHeight;
+
+	D3D12_RESOURCE_BARRIER barrier = {};
+	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	barrier.Transition.pResource = source;
+	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	list->ResourceBarrier(1, &barrier);
+	list->OMSetRenderTargets(1, &targetView, FALSE, nil);
+	D3D12_VIEWPORT viewport = { 0.0f, 0.0f, targetWidth, targetHeight, 0.0f, 1.0f };
+	D3D12_RECT scissor = { 0, 0, (LONG)targetDesc.Width, (LONG)targetDesc.Height };
+	list->RSSetViewports(1, &viewport);
+	list->RSSetScissorRects(1, &scissor);
+	rw::d3d12::resetWorldDrawState();
+	list->SetDescriptorHeaps(1, &heap);
+	list->SetGraphicsRootSignature(gDesktopMirrorRootSignature);
+	list->SetPipelineState(gDesktopMirrorPipeline);
+	list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	list->SetGraphicsRoot32BitConstants(0, 6, &constants, 0);
+	list->SetGraphicsRootDescriptorTable(1, sourceGpu);
+	list->DrawInstanced(3, 1, 0, 0);
+	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	list->ResourceBarrier(1, &barrier);
+	rw::d3d12::deferDescriptorRelease(sourceIndex, targetIndex, UINT32_MAX);
+	static bool logged;
+	if(!logged){
+		logged = true;
+		VrLog("Desktop mirror active: mode=%d eye=%dx%d format=%u window=%llux%u\n",
+			gDesktopMirrorMode, gEye[0].swapchain.width, gEye[0].swapchain.height,
+			(unsigned)sourceDesc.Format, (unsigned long long)targetDesc.Width,
+			targetDesc.Height);
+	}
 }
 
 bool AreCopyCompatibleFormats(DXGI_FORMAT source, DXGI_FORMAT target)
@@ -19012,6 +19317,7 @@ bool SubmitStereoFrame(RwCamera *camera)
 	const bool prepareDlaaAfterSubmit =
 		dlaaWarmupFrame && gDlaaStereoWarmupFrames == 0 &&
 		!gDlaaStereoActivationFailed;
+	DrawDesktopMirror();
 	if(!FinishD3D12SwapchainWrites()){
 		EndXrFrame(nil,0);
 		return false;
@@ -19771,6 +20077,7 @@ void Shutdown()
 	DestroyRuntime();
 #ifdef RW_D3D12
 	DestroyTrackedForegroundResolvePipeline();
+	DestroyDesktopMirrorPipeline();
 	ReleaseDesktopAaStaging();
 #endif
 	Fsr2::Shutdown();

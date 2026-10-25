@@ -773,7 +773,7 @@
                     },
                     {
                         "path":  "src/vr/OpenXRVR.cpp",
-                        "sha256":  "bfc9a14d425842bf8b3a455d71583949f5fc814ef0cd5fa414c80c0d6abb3d0d"
+                        "sha256":  "9d9ee9c157f354d8b9702ee1e988891361948c72afd2649162ff6242fab54290"
                     },
                     {
                         "path":  "src/vr/OpenXRWristHud.h",
@@ -1355,7 +1355,7 @@
                   },
                   {
                       "path":  "src/d3d12/d3d12device.cpp",
-                      "sha256":  "404842ee4dbb0217bd72c1c751943f0c6d26af418d83983b41041c132e6b4d61"
+                      "sha256":  "40c493d369035bb8efca0dc39cef94dcc1041767ddba9bcd861e50d86ab8bf8a"
                   },
                   {
                       "path":  "src/d3d12/d3d12im.cpp",
@@ -1375,7 +1375,7 @@
                   },
                   {
                       "path":  "src/d3d12/rwd3d12impl.h",
-                      "sha256":  "986c0bc2f070982d2b347b6de711b88a272b96e264b3367bcd9badca07955a96"
+                      "sha256":  "7c2685ea7bf87b2f7d0b1bddb0856e15f866701e683393e874fa83a24a495738"
                   },
                   {
                       "path":  "src/engine.cpp",
