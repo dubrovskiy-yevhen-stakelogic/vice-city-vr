@@ -219,6 +219,9 @@ void EndTrackedWeaponFire();
 void NotifyTrackedWeaponFired(int hand, int weaponType);
 bool GetActiveTrackedWeaponAim(CVector *source, CVector *direction);
 bool GetActiveTrackedThrowableLaunch(CVector *source, CVector *velocity);
+bool IsPhysicalThrowingEnabled();
+// True once when the physical throw gesture of this hand completes.
+bool ConsumeTrackedThrowRelease(int hand);
 void ReleaseTrackedWeaponAfterUse(int hand, int slot);
 bool GetTrackedHandMatrix(int hand, CMatrix *handMatrix, float *grip = nil, float *trigger = nil);
 bool GetTrackedHandAimRay(int hand, CVector *origin, CVector *direction);
