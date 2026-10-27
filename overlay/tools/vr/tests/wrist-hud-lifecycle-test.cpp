@@ -78,7 +78,8 @@ static bool gWristHudFailed, gGameplayHudVisible, gVrHudMenuVisible, gFramePrepa
 static bool gTrackedHandPoseValid[EYE_COUNT], scopeActive, routeHud, immersiveDriving, failAnchor;
 static CMatrix gBaseCamera, handMatrices[EYE_COUNT], vehicleMatrices[EYE_COUNT];
 static XrView gLocatedViews[EYE_COUNT];
-static XrCompositionLayerQuad gWristHudLayers[WristHudSettings::PANEL_COUNT];
+enum { WRIST_AMMO_OTHER = WristHudSettings::PANEL_COUNT, WRIST_LAYER_COUNT };
+static XrCompositionLayerQuad gWristHudLayers[WRIST_LAYER_COUNT];
 static uintptr_t gGameplaySpace = 17;
 static Swapchain gWristHudSwapchain, gHudSwapchain;
 static unsigned int handCalls, vehicleCalls, atlasCreates, copies, hudRenders, atlasRenders;
@@ -207,6 +208,22 @@ static void RenderVrWristHudContents(unsigned int mask)
 	++atlasRenders;
 }
 
+// Weapon slot fired by each hand while every hand shows its own ammo; the
+// selection mirrors production GetWristAmmoSlot.
+static int ammoHandSlot[EYE_COUNT];
+static int GetWristAmmoSlot(int panel)
+{
+	const bool perHand = gWristHud.ammoPerHand &&
+		gWristHud.enabled[WristHudSettings::AMMO] && !playerVehicle;
+	if(panel == WristHudSettings::AMMO && !perHand)
+		return -1;
+	if(!perHand || (panel != WristHudSettings::AMMO && panel != WRIST_AMMO_OTHER))
+		return -2;
+	const int hand = gWristHud.hand[WristHudSettings::AMMO];
+	const int slot = ammoHandSlot[panel == WRIST_AMMO_OTHER ? 1-hand : hand];
+	return slot >= 0 ? slot : -2;
+}
+
 #include "wrist-hud-production-extracted.inc"
 
 static RwCamera camera;
@@ -237,6 +254,7 @@ static void Reset()
 	handCalls = vehicleCalls = atlasCreates = copies = hudRenders = atlasRenders = failCopyNumber = 0;
 	invalidRectPanel = -1;
 	playerVehicle = nullptr;
+	ammoHandSlot[0] = ammoHandSlot[1] = -1;
 	gBaseCamera.SetUnity();
 	gBaseCamera.position = {100,200,10};
 	for(int hand = 0; hand < EYE_COUNT; hand++){
@@ -268,7 +286,8 @@ static void TestNormalSubmit()
 	assert(gWristHud.routingMask == 0xF && gWristHudLayerMask == 0xF);
 	assert(handCalls == 2 && vehicleCalls == 0 && atlasCreates == 1);
 	assert(copies == 2 && hudRenders == 1 && atlasRenders == 1);
-	for(const auto &layer : gWristHudLayers) assert(layer.space == gGameplaySpace && layer.size.width > 0);
+	for(int panel = 0; panel < WristHudSettings::PANEL_COUNT; panel++)
+		assert(gWristHudLayers[panel].space == gGameplaySpace && gWristHudLayers[panel].size.width > 0);
 	assert(Near(gWristHudLayers[0].pose.position,{-0.2f,-0.235f,-0.28f}));
 	CheckRestored();
 	CMatrix unused;
@@ -413,6 +432,40 @@ static void TestPanelProportions()
 		CheckRestored();
 	}
 }
+static void TestAmmoPerHand()
+{
+	// One panel: the classic current-weapon panel, never a second layer.
+	Reset(); ammoHandSlot[0] = 3; ammoHandSlot[1] = 4;
+	assert(SubmitHudForTest(&camera));
+	assert(gWristHud.routingMask == 0xF && gWristHudLayerMask == 0xF);
+	// Each hand: the other wrist gets its own layer, mirrored and on its own
+	// atlas rectangle below the main ammo panel.
+	Reset(); gWristHud.ammoPerHand = true; ammoHandSlot[0] = 3; ammoHandSlot[1] = 4;
+	assert(SubmitHudForTest(&camera));
+	assert(gWristHud.routingMask == 0xF && gWristHudLayerMask == 0x1F);
+	const auto &main = gWristHudLayers[WristHudSettings::AMMO];
+	const auto &other = gWristHudLayers[WRIST_AMMO_OTHER];
+	assert(other.space == gGameplaySpace && other.size.width == main.size.width);
+	assert(main.pose.position.x > 0.0f && other.pose.position.x < 0.0f);
+	assert(other.subImage.imageRect.offset.y >= main.subImage.imageRect.offset.y+main.subImage.imageRect.extent.height);
+	CheckRestored();
+	// An empty hand shows no ammo; the main panel still keeps the classic one off.
+	Reset(); gWristHud.ammoPerHand = true; ammoHandSlot[0] = 3;
+	assert(SubmitHudForTest(&camera));
+	assert(gWristHud.routingMask == 0xF && gWristHudLayerMask == 0x17);
+	Reset(); gWristHud.ammoPerHand = true; ammoHandSlot[1] = 4;
+	assert(SubmitHudForTest(&camera));
+	assert(gWristHud.routingMask == 0xF && gWristHudLayerMask == 0xF);
+	// Without the ammo panel or in a vehicle there is no second layer.
+	Reset(); gWristHud.ammoPerHand = true; gWristHud.enabled[WristHudSettings::AMMO] = false;
+	ammoHandSlot[0] = 3; ammoHandSlot[1] = 4;
+	assert(SubmitHudForTest(&camera));
+	assert(gWristHud.routingMask == 0x7 && gWristHudLayerMask == 0x7);
+	Reset(); gWristHud.ammoPerHand = true; playerVehicle = &car;
+	ammoHandSlot[0] = 3; ammoHandSlot[1] = 4;
+	assert(SubmitHudForTest(&camera));
+	assert(gWristHud.routingMask == 0xF && gWristHudLayerMask == 0xF);
+}
 #ifndef WRIST_HUD_LEGACY
 static void TestSnapshotLifetime()
 {
@@ -445,8 +498,9 @@ int main()
 	TestVehicles();
 	TestAtlasFailures();
 	TestPanelProportions();
+	TestAmmoPerHand();
 #ifndef WRIST_HUD_LEGACY
 	TestSnapshotLifetime();
 #endif
-	std::puts("wrist HUD lifecycle: PASS (production submit/restore/update/rect, hand routing, gaze, tracking, OFF/scopes, vehicles, failures, snapshot lifetime, 80 panel-aspect/size combinations)");
+	std::puts("wrist HUD lifecycle: PASS (production submit/restore/update/rect, hand routing, gaze, tracking, OFF/scopes, vehicles, failures, ammo per hand, snapshot lifetime, 80 panel-aspect/size combinations)");
 }

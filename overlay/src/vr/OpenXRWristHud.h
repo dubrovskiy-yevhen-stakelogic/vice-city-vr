@@ -95,6 +95,8 @@ void CaptureWristHudFrame(WristHudFrame *frame)
 		if(gWristHud.enabled[panel] && hand >= 0 && hand < EYE_COUNT)
 			requestedHands |= 1u << hand;
 	}
+	if(gWristHud.enabled[WristHudSettings::AMMO] && gWristHud.ammoPerHand)
+		requestedHands |= (1u << EYE_COUNT)-1;
 	if(!requestedHands) return;
 	CVehicle *vehicle = FindPlayerVehicle();
 	if(vehicle){
@@ -114,12 +116,16 @@ void CaptureWristHudFrame(WristHudFrame *frame)
 	}
 }
 
-bool BuildWristHudLayer(const WristHudFrame &frame, int panel,
+// atlasPanel is a WristHudSettings panel, or WRIST_AMMO_OTHER for the ammo
+// panel on the other wrist.
+bool BuildWristHudLayer(const WristHudFrame &frame, int atlasPanel,
 	XrCompositionLayerQuad *layer, bool *visible)
 {
 	*visible = true;
 	const bool vehicle = frame.context != WristHudSettings::FOOT;
-	const int hand = gWristHud.hand[panel];
+	const bool otherAmmo = atlasPanel == WRIST_AMMO_OTHER;
+	const int panel = otherAmmo ? WristHudSettings::AMMO : atlasPanel;
+	const int hand = otherAmmo ? 1-gWristHud.hand[panel] : gWristHud.hand[panel];
 	const int index = vehicle ? 0 : hand;
 	if(index < 0 || index >= EYE_COUNT || !(frame.anchorMask & (1u << index))) return false;
 	const int *placement = gWristHud.placement[panel][frame.context][gWristHud.underside[panel] ? 1 : 0];
@@ -165,7 +171,7 @@ bool BuildWristHudLayer(const WristHudFrame &frame, int panel,
 			*visible = false;
 	}
 	float left, top, width, height;
-	if(!GetVrWristHudPanelRect(panel, &left, &top, &width, &height)) return false;
+	if(!GetVrWristHudPanelRect(atlasPanel, &left, &top, &width, &height)) return false;
 	const int x = (int)floorf(left), y = (int)floorf(top);
 	const int w = (int)ceilf(width), h = (int)ceilf(height);
 	if(x < 0 || y < 0 || w <= 0 || h <= 0 ||
@@ -211,9 +217,16 @@ void PrepareWristHud(const WristHudFrame &frame)
 		bool visible = false;
 		if(BuildWristHudLayer(frame, panel, &gWristHudLayers[panel], &visible)){
 			gWristHud.routingMask |= 1u << panel;
-			if(visible) gWristHudLayerMask |= 1u << panel;
+			if(visible && (panel != WristHudSettings::AMMO ||
+			   GetWristAmmoSlot(panel) != -2))
+				gWristHudLayerMask |= 1u << panel;
 		}
 	}
+	bool visible = false;
+	if(GetWristAmmoSlot(WRIST_AMMO_OTHER) >= 0 &&
+	   BuildWristHudLayer(frame, WRIST_AMMO_OTHER,
+	   &gWristHudLayers[WRIST_AMMO_OTHER], &visible) && visible)
+		gWristHudLayerMask |= 1u << WRIST_AMMO_OTHER;
 }
 
 void UpdateWristHudAtlas(RwCamera *camera)

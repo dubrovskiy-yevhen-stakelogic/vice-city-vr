@@ -14232,7 +14232,7 @@ index 9150391..39bd474 100644
  
  #if defined(FIX_BUGS)
  	#define SCREEN_SCALE_X_FIX(a) SCREEN_SCALE_X(a)
-@@ -210,6 +213,329 @@ RwTexture *gpLaserSightTex;
+@@ -210,6 +213,336 @@ RwTexture *gpLaserSightTex;
  RwTexture *gpLaserDotTex;
  RwTexture *gpViewFinderTex;
  
@@ -14459,7 +14459,7 @@ index 9150391..39bd474 100644
 +bool GetVrWristHudPanelRect(int panel, float *left, float *top,
 +	float *width, float *height)
 +{
-+	if(!left || !top || !width || !height || panel < 0 || panel > 3)
++	if(!left || !top || !width || !height || panel < 0 || panel > 4)
 +		return false;
 +	switch(panel){
 +	case 0:
@@ -14475,8 +14475,9 @@ index 9150391..39bd474 100644
 +		*height = SCREEN_SCALE_Y(84.0f);
 +		break;
 +	default:
++		// Clock, ammo, and the ammo panel of the other wrist below it.
 +		*left = SCREEN_SCALE_X(panel == 2 ? 8.0f : 144.0f);
-+		*top = SCREEN_SCALE_Y(4.0f);
++		*top = SCREEN_SCALE_Y(panel == 4 ? 50.0f : 4.0f);
 +		*width = SCREEN_SCALE_X(120.0f);
 +		*height = SCREEN_SCALE_Y(40.0f);
 +		break;
@@ -14538,8 +14539,14 @@ index 9150391..39bd474 100644
 +		snprintf(text, sizeof(text), "%02d:%02d", CClock::GetHours(), CClock::GetMinutes());
 +		DrawWristNumber(2, text, CLOCK_COLOR);
 +	}
-+	if(mask & 8u){
-+		CWeapon *weapon = FindPlayerPed()->GetWeapon();
++	for(int panel = 3; panel <= 4; panel++){
++		if(!(mask & (1u << panel)))
++			continue;
++		const int slot = OculusVR::GetWristAmmoSlot(panel);
++		if(slot == -2)
++			continue;
++		CWeapon *weapon = slot >= 0 ? &FindPlayerPed()->GetWeapon(slot) :
++			FindPlayerPed()->GetWeapon();
 +		CWeaponInfo *info = weapon ? CWeaponInfo::GetWeaponInfo(weapon->m_eWeaponType) : nil;
 +		if(info && info->m_nWeaponSlot > 1 && weapon->m_eWeaponType != WEAPONTYPE_DETONATOR &&
 +		   !CDarkel::FrenzyOnGoing()){
@@ -14553,7 +14560,7 @@ index 9150391..39bd474 100644
 +			}
 +			uint8 red, green, blue;
 +			OculusVR::GetWristAmmoColour(&red, &green, &blue);
-+			DrawWristNumber(3, text, CRGBA(red, green, blue, 255));
++			DrawWristNumber(panel, text, CRGBA(red, green, blue, 255));
 +		}
 +	}
 +}
@@ -14562,7 +14569,7 @@ index 9150391..39bd474 100644
  void CHud::Draw()
  {
  	RwRenderStateSet(rwRENDERSTATETEXTUREFILTER, (void*)rwFILTERNEAREST);
-@@ -223,14 +549,23 @@ void CHud::Draw()
+@@ -223,14 +556,23 @@ void CHud::Draw()
  	if (CReplay::IsPlayingBack())
  		return;
  
@@ -14588,7 +14595,7 @@ index 9150391..39bd474 100644
  		int32 Mode = TheCamera.Cams[TheCamera.ActiveCam].Mode;
  
  		if ((Mode == CCam::MODE_SNIPER || Mode == CCam::MODE_ROCKETLAUNCHER || Mode == CCam::MODE_M16_1STPERSON || Mode == CCam::MODE_HELICANNON_1STPERSON || Mode == CCam::MODE_CAMERA)
-@@ -252,6 +587,19 @@ void CHud::Draw()
+@@ -252,6 +594,19 @@ void CHud::Draw()
  				}
  			}
  		}
@@ -14608,7 +14615,7 @@ index 9150391..39bd474 100644
  
  		if (DrawCrossHair || DrawCrossHairPC) {
  			RwRenderStateSet(rwRENDERSTATETEXTUREFILTER, (void *)rwFILTERLINEAR);
-@@ -307,15 +655,52 @@ void CHud::Draw()
+@@ -307,15 +662,52 @@ void CHud::Draw()
  					Sprites[HUD_SITEM16].Draw(CRect(rect), CRGBA(255, 255, 255, 255),
  						0.0f, 0.0f,  1.0f, 0.0f,  0.0f, 1.0f,  1.0f, 1.0f);
  				}
@@ -14667,7 +14674,7 @@ index 9150391..39bd474 100644
  					RwRenderStateSet(rwRENDERSTATEVERTEXALPHAENABLE, (void*)FALSE);
  					RwRenderStateSet(rwRENDERSTATEZWRITEENABLE, (void*)TRUE);
  				}
-@@ -324,10 +709,10 @@ void CHud::Draw()
+@@ -324,10 +716,10 @@ void CHud::Draw()
  					float xOffset = SCREEN_SCALE_X(210.0f);
  					float yOffset = SCREEN_SCALE_Y(210.0f);
  
@@ -14680,7 +14687,7 @@ index 9150391..39bd474 100644
  						sprite = HUD_VIEWFINDER;
  						CrossHairHidesHud = true;
  						xOffset = SCREEN_SCALE_X(256.0f);
-@@ -362,9 +747,25 @@ void CHud::Draw()
+@@ -362,9 +754,25 @@ void CHud::Draw()
  					Sprites[sprite].Draw(CRect(rect), CRGBA(255, 255, 255, 255),
  						0.99f, 0.99f,  0.01f, 0.99f,  0.99f, 0.01f,  0.01f, 0.01f);
  
@@ -14707,7 +14714,7 @@ index 9150391..39bd474 100644
  						RwRenderStateSet(rwRENDERSTATEZTESTENABLE, (void*)FALSE);
  						RwRenderStateSet(rwRENDERSTATEVERTEXALPHAENABLE, (void*)TRUE);
  						RwRenderStateSet(rwRENDERSTATEZWRITEENABLE, (void*)FALSE);
-@@ -403,38 +804,13 @@ void CHud::Draw()
+@@ -403,38 +811,13 @@ void CHud::Draw()
  		*/
  
  		wchar sPrint[16];
@@ -14750,7 +14757,7 @@ index 9150391..39bd474 100644
  
  		/*
  			DrawAmmo
-@@ -474,7 +850,11 @@ void CHud::Draw()
+@@ -474,7 +857,11 @@ void CHud::Draw()
  				DrawWeaponIcon
  			*/
  
@@ -14763,7 +14770,7 @@ index 9150391..39bd474 100644
  				if (weaponInfo->m_nModelId <= 0) {
  					RwRenderStateSet(rwRENDERSTATETEXTUREFILTER, (void*)rwFILTERLINEAR);
  					if (FrontEndMenuManager.m_PrefsShowHud)
-@@ -525,7 +905,11 @@ void CHud::Draw()
+@@ -525,7 +912,11 @@ void CHud::Draw()
  				CFont::SetDropShadowPosition(0);
  				CFont::SetFontStyle(FONT_STANDARD);
  
@@ -14776,7 +14783,7 @@ index 9150391..39bd474 100644
  					CFont::SetDropShadowPosition(2);
  					CFont::SetDropColor(CRGBA(0, 0, 0, alpha));
  					AMMO_COLOR.a = alpha;
-@@ -537,128 +921,6 @@ void CHud::Draw()
+@@ -537,128 +928,6 @@ void CHud::Draw()
  			}
  		}
  
@@ -14905,7 +14912,7 @@ index 9150391..39bd474 100644
  		static int32 nMediaLevelCounter = 0;
  		if (CStats::ShowChaseStatOnScreen != 0) {
  			float fCurAttentionLevel = CWorld::Players[CWorld::PlayerInFocus].m_fMediaAttention;
-@@ -914,7 +1176,11 @@ void CHud::Draw()
+@@ -914,7 +1183,11 @@ void CHud::Draw()
  		/*
  			DrawClock
  		*/
@@ -14918,7 +14925,7 @@ index 9150391..39bd474 100644
  			CFont::SetJustifyOff();
  			CFont::SetCentreOff();
  			CFont::SetBackgroundOff();
-@@ -1056,24 +1322,10 @@ void CHud::Draw()
+@@ -1056,24 +1329,10 @@ void CHud::Draw()
  		if (FrontEndMenuManager.m_PrefsRadarMode != 2 &&
  			!m_HideRadar && (m_ItemToFlash == ITEM_RADAR && CTimer::GetFrameCounter() & 8 || m_ItemToFlash != ITEM_RADAR)) {
  

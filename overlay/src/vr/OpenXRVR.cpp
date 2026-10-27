@@ -110,6 +110,7 @@ bool BuildTrackedWeaponAimInternal(int hand, int weaponType, CVector *source,
 void UpdateTrackedScopeState();
 void ResetTrackedScopeState();
 void ClearDroppedWeapon(int hand);
+int GetWristAmmoSlotInternal(int hand);
 bool IsHandBusyWithReload(int hand);
 void ResetTeleportInteraction();
 
@@ -410,6 +411,7 @@ enum eVrHudMenuItem
 	VR_HUD_WRIST_GAZE,
 	VR_HUD_WRIST_RANGE,
 	VR_HUD_WRIST_VEHICLE,
+	VR_HUD_WRIST_AMMO_HANDS,
 	VR_HUD_CLASSIC_WEAPON,
 	VR_HUD_CLASSIC_CLOCK,
 	VR_HUD_BACK,
@@ -930,7 +932,9 @@ int gHudOffsetYCm = 0;
 WristHudSettings gWristHud;
 unsigned int gWristHudLayerMask = 0;
 bool gWristHudFailed = false;
-XrCompositionLayerQuad gWristHudLayers[WristHudSettings::PANEL_COUNT];
+// One layer per wrist panel, plus the ammo panel on the other wrist.
+enum { WRIST_AMMO_OTHER = WristHudSettings::PANEL_COUNT, WRIST_LAYER_COUNT };
+XrCompositionLayerQuad gWristHudLayers[WRIST_LAYER_COUNT];
 int gTrafficPedPercent = 135;
 int gTrafficCarPercent = 135;
 // Calibration integers are stored in half-units: 1 = 0.5 cm or 0.5 degree.
@@ -7553,6 +7557,7 @@ bool UpdateVrMenuSwapchain()
 			sprintf(rows[VR_HUD_WRIST_GAZE], "SHOW PANELS  < %s >", gWristHud.gaze ? "WHEN LOOKED AT" : "ALWAYS");
 			sprintf(rows[VR_HUD_WRIST_RANGE], "LOOK RANGE  < %d CM >", gWristHud.gazeRangeCm);
 			sprintf(rows[VR_HUD_WRIST_VEHICLE], "PANELS WHILE DRIVING  < %s >", gWristHud.inVehicle ? "IMMERSIVE ONLY" : "OFF");
+			sprintf(rows[VR_HUD_WRIST_AMMO_HANDS], "AMMO PANEL  < %s >", gWristHud.ammoPerHand ? "EACH HAND" : "ONE HAND");
 			sprintf(rows[VR_HUD_CLASSIC_WEAPON], "CLASSIC WEAPON PANEL  < %s >", gWristHud.classicWeapon ? "ON" : "OFF");
 			sprintf(rows[VR_HUD_CLASSIC_CLOCK], "CLASSIC CLOCK  < %s >", gWristHud.classicClock ? "ON" : "OFF");
 			strcpy(rows[VR_HUD_BACK], "BACK TO SETTINGS");
@@ -13539,6 +13544,10 @@ void ChangeVrMenuValue(int direction)
 			gWristHud.inVehicle = !gWristHud.inVehicle;
 			gWristHud.Save("WristPanelsInVehicle", gWristHud.inVehicle);
 			break;
+		case VR_HUD_WRIST_AMMO_HANDS:
+			gWristHud.ammoPerHand = !gWristHud.ammoPerHand;
+			gWristHud.Save("WristAmmoPerHand", gWristHud.ammoPerHand);
+			break;
 		case VR_HUD_CLASSIC_WEAPON:
 			gWristHud.classicWeapon = !gWristHud.classicWeapon;
 			gWristHud.Save("HudWeaponPanel", gWristHud.classicWeapon);
@@ -17390,6 +17399,19 @@ bool IsHudPanelOnWrist(int panel)
 }
 bool IsClassicHudWeaponPanelVisible() { return !ShouldRouteGameplayHudToVr() || gWristHud.classicWeapon; }
 bool IsClassicHudClockVisible() { return !ShouldRouteGameplayHudToVr() || gWristHud.classicClock; }
+int GetWristAmmoSlot(int panel)
+{
+	const bool perHand = gWristHud.ammoPerHand &&
+		gWristHud.enabled[WristHudSettings::AMMO] && FindPlayerVehicle() == nil;
+	if(panel == WristHudSettings::AMMO && !perHand)
+		return -1;
+	if(!perHand || (panel != WristHudSettings::AMMO && panel != WRIST_AMMO_OTHER))
+		return -2;
+	const int hand = gWristHud.hand[WristHudSettings::AMMO];
+	const int slot = GetWristAmmoSlotInternal(panel == WRIST_AMMO_OTHER ? 1-hand : hand);
+	return slot >= 0 ? slot : -2;
+}
+
 void GetWristAmmoColour(uint8 *red, uint8 *green, uint8 *blue)
 {
 	if(red) *red = (uint8)gWristHud.ammoColour[0];
@@ -17725,6 +17747,25 @@ bool IsTrackedWeaponHeld(int hand)
 int GetHeldWeaponSlot(int hand)
 {
 	return hand >= 0 && hand < EYE_COUNT ? gHeldWeaponSlot[hand] : -1;
+}
+
+// The weapon slot whose ammo this hand's wrist shows when each hand shows its
+// own, or -1. A gun counts for the hand that pulls its trigger, which is the
+// front hand on the rocket launcher, and never for a support grip alone.
+int GetWristAmmoSlotInternal(int hand)
+{
+	CPlayerPed *player = FindPlayerPed();
+	if(!player || hand < 0 || hand >= EYE_COUNT)
+		return -1;
+	const int own = gHeldWeaponSlot[hand];
+	if(own >= 0 && GetTrackedWeaponFireTriggerHand(hand,
+	   player->GetWeapon(own).m_eWeaponType) != 1-hand)
+		return own;
+	const int other = gHeldWeaponSlot[1-hand];
+	if(other >= 0 && GetTrackedWeaponFireTriggerHand(1-hand,
+	   player->GetWeapon(other).m_eWeaponType) == hand)
+		return other;
+	return -1;
 }
 
 void ReleaseTrackedWeaponAfterUse(int hand, int slot)
@@ -19090,11 +19131,11 @@ bool SubmitStereoFrame(RwCamera *camera)
 		vrMenuLayer.size.height=vrMenuLayer.size.width*
 			(float)VR_MENU_HEIGHT/VR_MENU_WIDTH;
 	}
-	const XrCompositionLayerBaseHeader *layers[4+WristHudSettings::PANEL_COUNT]; uint32_t count=0;
+	const XrCompositionLayerBaseHeader *layers[4+WRIST_LAYER_COUNT]; uint32_t count=0;
 	layers[count++]=(const XrCompositionLayerBaseHeader*)&projection;
 	if(showHud) layers[count++]=(const XrCompositionLayerBaseHeader*)&hud;
 	if(showHud)
-		for(int panel = 0; panel < WristHudSettings::PANEL_COUNT; panel++)
+		for(int panel = 0; panel < WRIST_LAYER_COUNT; panel++)
 			if(gWristHudLayerMask & (1u << panel))
 				layers[count++]=(const XrCompositionLayerBaseHeader*)&gWristHudLayers[panel];
 	if(showDebug) layers[count++]=(const XrCompositionLayerBaseHeader*)&debugLayer;
