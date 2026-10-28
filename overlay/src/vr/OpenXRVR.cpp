@@ -110,6 +110,7 @@ bool BuildTrackedWeaponAimInternal(int hand, int weaponType, CVector *source,
 void UpdateTrackedScopeState();
 void ResetTrackedScopeState();
 void ClearDroppedWeapon(int hand);
+void UpdateAudioListener();
 bool IsHandBusyWithReload(int hand);
 void ResetTeleportInteraction();
 
@@ -213,6 +214,7 @@ enum eVrMainMenuItem
 	VR_MAIN_MANUAL_RELOAD,
 	VR_MAIN_SCOPE_AIM,
 	VR_MAIN_AIM_DIRECTION,
+	VR_MAIN_AUDIO_HRTF,
 	VR_MAIN_VEHICLE_SETTINGS,
 	VR_MAIN_LOCOMOTION_SETTINGS,
 	VR_MAIN_CHEATS,
@@ -845,6 +847,18 @@ bool gWeaponHolsterHighlightsEnabled = false;
 bool gManualReloadEnabled = false;
 bool gPhysicalScopeAimEnabled = true;
 bool gHeadAimEnabled;
+// Headphone HRTF in OpenAL Soft, so sounds can be told apart front and back.
+// The sample manager resets the device when the generation changes.
+bool gAudioHrtfEnabled = true;
+int gAudioHrtfGeneration;
+// The headset pose sounds are heard from, taken from the last stereo frame.
+CMatrix gAudioListener;
+// Head position relative to the game camera. Audio runs before the next stereo
+// frame, so the position is rebased on the current camera to keep up with the
+// player's motion.
+CVector gAudioListenerCameraOffset;
+uint32 gAudioListenerFrame;
+bool gAudioListenerValid;
 bool gWeaponGripLockEnabled;
 int gCarDrivingType;
 int gBikeDrivingType;
@@ -2526,6 +2540,8 @@ void LoadVrSettings()
 		GetPrivateProfileIntA("VR", "PhysicalScopeAim", 1, path) != 0;
 	gHeadAimEnabled =
 		GetPrivateProfileIntA("VR", "HeadAim", 0, path) != 0;
+	gAudioHrtfEnabled =
+		GetPrivateProfileIntA("VR", "AudioHrtf", 1, path) != 0;
 	gWeaponGripLockEnabled =
 		GetPrivateProfileIntA("VR", "WeaponGripLock", 0, path) != 0;
 	// Migrate the single pre-v0.4.1 choice without rewriting it. Missing new
@@ -7656,6 +7672,8 @@ bool UpdateVrMenuSwapchain()
 		gPhysicalScopeAimEnabled ? "ON" : "OFF");
 	sprintf(rows[VR_MAIN_AIM_DIRECTION], "AIM DIRECTION  < %s >",
 		gHeadAimEnabled ? "HEAD" : "CONTROLLER");
+	sprintf(rows[VR_MAIN_AUDIO_HRTF], "HEADPHONE 3D AUDIO  < %s >",
+		gAudioHrtfEnabled ? "ON" : "OFF");
 	strcpy(rows[VR_MAIN_VEHICLE_SETTINGS], "VEHICLE SETTINGS  < OPEN >");
 	strcpy(rows[VR_MAIN_LOCOMOTION_SETTINGS],
 		"LOCOMOTION SETTINGS  < OPEN >");
@@ -13891,6 +13909,11 @@ void ChangeVrMenuValue(int direction)
 		for(int hand = 0; hand < EYE_COUNT; hand++)
 			gTrackedAimCacheValid[hand] = false;
 		break;
+	case VR_MAIN_AUDIO_HRTF:
+		gAudioHrtfEnabled = !gAudioHrtfEnabled;
+		gAudioHrtfGeneration++;
+		SaveVrSetting("AudioHrtf", gAudioHrtfEnabled);
+		break;
 	case VR_MAIN_VEHICLE_SETTINGS:
 		gVrVehicleMenuVisible = true;
 		gVrGraphicsMenuVisible = false;
@@ -16735,6 +16758,7 @@ bool BeginStereoFrame(RwCamera *camera, const CMatrix &baseCamera)
 		gTemporalJitterClipY = -2.0f*projectionJitterY/(float)gEye[0].renderHeight;
 	}
 #endif
+	UpdateAudioListener();
 	return true;
 }
 
@@ -16751,6 +16775,36 @@ bool GetEyeCamera(int eye, CMatrix *eyeCamera)
 	eyeCamera->GetPosition()=gBaseCamera.GetPosition()+ToGameVector(pose.position);
 	return true;
 }
+
+// The listener sits between the eyes and turns with the headset, in the same
+// axis convention as the eye cameras (and so as TheCamera).
+void UpdateAudioListener()
+{
+	CMatrix left, right;
+	gAudioListenerValid = GetEyeCamera(0, &left) && GetEyeCamera(1, &right);
+	if(!gAudioListenerValid)
+		return;
+	gAudioListener = left;
+	gAudioListener.GetPosition() =
+		(left.GetPosition()+right.GetPosition())*0.5f;
+	gAudioListenerCameraOffset = gAudioListener.GetPosition()-TheCamera.GetPosition();
+	gAudioListenerFrame = CTimer::GetFrameCounter();
+}
+
+bool GetAudioListenerMatrix(CMatrix *listener)
+{
+	// Cutscenes in the cinema view, menus and flat mode render no stereo frame;
+	// the game camera is the right listener there.
+	if(!listener || !gAudioListenerValid || !gSessionRunning ||
+	   CTimer::GetFrameCounter()-gAudioListenerFrame > 2U)
+		return false;
+	*listener = gAudioListener;
+	listener->GetPosition() = TheCamera.GetPosition()+gAudioListenerCameraOffset;
+	return true;
+}
+
+bool IsAudioHrtfEnabled() { return gAudioHrtfEnabled; }
+int GetAudioHrtfGeneration() { return gAudioHrtfGeneration; }
 
 bool BeginEye(RwCamera *camera, int eye, CMatrix *eyeCamera, float *horizontalFov)
 {

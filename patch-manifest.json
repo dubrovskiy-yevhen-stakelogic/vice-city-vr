@@ -10,7 +10,7 @@
     "patches":  [
                     {
                         "path":  "vice-city-vr.patch",
-                        "sha256":  "141a707a0bc115f1a2811bfa53bfad93564ac6f4c1299f529da4030639cde3c0",
+                        "sha256":  "6e67b886134575a1f4dcd05f2c9a8781c3eee713f0c75f34ad3b4a48ccba19b4",
                         "targets":  [
                                         {
                                             "path":  "CMakeLists.txt",
@@ -50,7 +50,12 @@
                                         {
                                             "path":  "src/audio/AudioLogic.cpp",
                                             "preimageSha256":  "0a2c5687cc88cb6f9333ae0a63faac1febdf732e54a787106e7dd26080d42bf4",
-                                            "postimageSha256":  "47a850520ad81da1a6148630c9177d30b796191b22ee95f28a7d206a15ee3af9"
+                                            "postimageSha256":  "ceef2477d7e53e463078dcc85d8a36cf5bd867fdde7f839a688bb61c2b8ef423"
+                                        },
+                                        {
+                                            "path":  "src/audio/AudioManager.cpp",
+                                            "preimageSha256":  "d4f053d37466fc697309110f44149f1b228bec42f4072d93c7ca33f4b0b7bc7a",
+                                            "postimageSha256":  "10a3770f933d8a2a56c8b6939f9f1ebea549fb3159405bc25c4d33c9408a37ff"
                                         },
                                         {
                                             "path":  "src/audio/MusicManager.cpp",
@@ -80,7 +85,7 @@
                                         {
                                             "path":  "src/audio/sampman_oal.cpp",
                                             "preimageSha256":  "b9ce93194a334473cee702fe7e0c49cfa1299e4f96c77a71b28ab2fe035a260a",
-                                            "postimageSha256":  "8ed49b78dd66144fc745dc64271619ea9f00be596f0020439e6c3cee56e2543b"
+                                            "postimageSha256":  "70911534043e0e056c3b749dc6d99fb7fe1e774e981812937e7d29e8bdc70f93"
                                         },
                                         {
                                             "path":  "src/control/CarAI.cpp",
@@ -769,11 +774,11 @@
                     },
                     {
                         "path":  "src/vr/OculusVR.h",
-                        "sha256":  "14758a89d30faf9af0036c074fbbd2fb573016293ae621b6a647d6bac0ab5280"
+                        "sha256":  "780fc10789b5bb5fbaed39db9843017d82e09f357b3ce32d73827313045418da"
                     },
                     {
                         "path":  "src/vr/OpenXRVR.cpp",
-                        "sha256":  "bfc9a14d425842bf8b3a455d71583949f5fc814ef0cd5fa414c80c0d6abb3d0d"
+                        "sha256":  "d754db25a0a7e59add980390f43d4f82be1a7adfbbbb913a519471191f99cfbc"
                     },
                     {
                         "path":  "src/vr/OpenXRWristHud.h",

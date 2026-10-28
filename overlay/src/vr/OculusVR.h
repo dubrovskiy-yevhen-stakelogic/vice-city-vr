@@ -58,6 +58,11 @@ const char *GetVrSettingsFilePath();
 
 bool BeginStereoFrame(RwCamera *camera, const CMatrix &baseCamera);
 bool GetEyeCamera(int eye, CMatrix *eyeCamera);
+// The headset pose of the last stereo frame, for hearing sounds from it.
+bool GetAudioListenerMatrix(CMatrix *listener);
+// Headphone HRTF setting; the generation changes when it is toggled.
+bool IsAudioHrtfEnabled();
+int GetAudioHrtfGeneration();
 bool BeginEye(RwCamera *camera, int eye, CMatrix *eyeCamera, float *horizontalFov);
 void GetTemporalJitterClip(float *x, float *y);
 #ifdef GTA_VR_OPENXR
