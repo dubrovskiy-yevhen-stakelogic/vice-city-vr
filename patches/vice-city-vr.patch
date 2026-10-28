@@ -12520,7 +12520,7 @@ index 9c668cf..b47f6cd 100644
  	CWeaponInfo *weaponInfo = CWeaponInfo::GetWeaponInfo(GetWeapon()->m_eWeaponType);
  	if (m_bHasLockOnTarget && !m_pPointGunAt) {
  		TheCamera.ClearPlayerWeaponMode();
-@@ -1234,6 +1740,433 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
+@@ -1234,6 +1740,437 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
  	else
  		m_wepAccuracy = 100;
  
@@ -12782,7 +12782,11 @@ index 9c668cf..b47f6cd 100644
 +				OculusVR::IsTrackedWeaponTriggerPressed(hand);
 +			OculusVR::SetTrackedThrowablePreviewActive(hand,
 +				throwState.armed && triggerPressed);
-+			if(throwState.armed &&
++			// A physical throw completes when grip and trigger are let go;
++			// an aimed throw when the trigger is.
++			if(OculusVR::IsPhysicalThrowingEnabled() ?
++			   OculusVR::ConsumeTrackedThrowRelease(hand) :
++			   throwState.armed &&
 +			   OculusVR::IsTrackedWeaponTriggerJustReleased(hand)){
 +				CVector vrThrowSource, vrThrowDirection;
 +				const bool haveTrackedAim = OculusVR::GetTrackedWeaponAim(
@@ -12954,7 +12958,7 @@ index 9c668cf..b47f6cd 100644
  	if (!m_pFire) {
  		eWeaponType weapon = GetWeapon()->m_eWeaponType;
  		if (weapon == WEAPONTYPE_ROCKETLAUNCHER || weapon == WEAPONTYPE_SNIPERRIFLE ||
-@@ -1758,6 +2691,12 @@ CPlayerPed::ProcessControl(void)
+@@ -1758,6 +2695,12 @@ CPlayerPed::ProcessControl(void)
  				} else if (TheCamera.Cams[0].Using3rdPersonMouseCam()
  #ifdef FREE_CAM
  					&& !CCamera::bFreeCam
@@ -12967,7 +12971,7 @@ index 9c668cf..b47f6cd 100644
  #endif
  					) {
  					if (padUsed)
-@@ -1858,7 +2797,31 @@ CPlayerPed::ProcessControl(void)
+@@ -1858,7 +2801,31 @@ CPlayerPed::ProcessControl(void)
  	}
  	if (padUsed && IsPedShootable() && m_nPedState != PED_ANSWER_MOBILE && m_nLastPedState != PED_ANSWER_MOBILE) {
  		ProcessWeaponSwitch(padUsed);
