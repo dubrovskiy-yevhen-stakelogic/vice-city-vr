@@ -212,6 +212,7 @@ enum eVrMainMenuItem
 	VR_MAIN_HOLSTER_HIGHLIGHTS,
 	VR_MAIN_MANUAL_RELOAD,
 	VR_MAIN_SCOPE_AIM,
+	VR_MAIN_SCOPE_OTHER_EYE,
 	VR_MAIN_AIM_DIRECTION,
 	VR_MAIN_VEHICLE_SETTINGS,
 	VR_MAIN_LOCOMOTION_SETTINGS,
@@ -722,6 +723,16 @@ ULONGLONG gTrackedScopeCandidateSince;
 ULONGLONG gTrackedScopeInvalidSince;
 bool gTrackedScopeReticleTargetValid;
 CVector gTrackedScopeReticleTarget;
+// Magnification of the sniper and laser scope optics and the camera
+// viewfinder. The right stick changes it while the optic is active; each
+// weapon keeps its value until the game exits.
+float gTrackedScopeZoom[3] = { 2.5f, 3.0f, 1.6f };
+ULONGLONG gTrackedScopeZoomShownAt;
+// PerfNowMs of the last stick update; GetTickCount64 only advances every
+// 10-16 ms, which would zoom in visible steps at 90-120 Hz.
+double gTrackedScopeZoomLastInput;
+// Eye behind the active optic, or -1 while both eyes see it (camera viewfinder).
+int gTrackedScopeEye = -1;
 struct PhysicalMeleeStrike
 {
 	bool pending;
@@ -844,6 +855,8 @@ int gWeaponHapticsStrengthPercent = 100;
 bool gWeaponHolsterHighlightsEnabled = false;
 bool gManualReloadEnabled = false;
 bool gPhysicalScopeAimEnabled = true;
+// Black out the eye that is not behind an active sniper, laser or rocket optic.
+bool gScopeOtherEyeDark = true;
 bool gHeadAimEnabled;
 bool gWeaponGripLockEnabled;
 int gCarDrivingType;
@@ -2524,6 +2537,8 @@ void LoadVrSettings()
 		GetPrivateProfileIntA("VR", "ManualReloading", 0, path) != 0;
 	gPhysicalScopeAimEnabled =
 		GetPrivateProfileIntA("VR", "PhysicalScopeAim", 1, path) != 0;
+	gScopeOtherEyeDark =
+		GetPrivateProfileIntA("VR", "ScopeOtherEyeDark", 1, path) != 0;
 	gHeadAimEnabled =
 		GetPrivateProfileIntA("VR", "HeadAim", 0, path) != 0;
 	gWeaponGripLockEnabled =
@@ -7654,6 +7669,8 @@ bool UpdateVrMenuSwapchain()
 		gManualReloadEnabled ? "ON" : "OFF");
 	sprintf(rows[VR_MAIN_SCOPE_AIM], "PHYSICAL SCOPE AIM  < %s >",
 		gPhysicalScopeAimEnabled ? "ON" : "OFF");
+	sprintf(rows[VR_MAIN_SCOPE_OTHER_EYE], "SCOPE OTHER EYE  < %s >",
+		gScopeOtherEyeDark ? "DARK" : "VISIBLE");
 	sprintf(rows[VR_MAIN_AIM_DIRECTION], "AIM DIRECTION  < %s >",
 		gHeadAimEnabled ? "HEAD" : "CONTROLLER");
 	strcpy(rows[VR_MAIN_VEHICLE_SETTINGS], "VEHICLE SETTINGS  < OPEN >");
@@ -10587,21 +10604,40 @@ bool IsPhysicalScopeWeaponTypeInternal(int weaponType)
 	}
 }
 
+int GetTrackedScopeZoomSlotInternal(int weaponType)
+{
+	switch(weaponType){
+	case WEAPONTYPE_SNIPERRIFLE: return 0;
+	case WEAPONTYPE_LASERSCOPE: return 1;
+	case WEAPONTYPE_CAMERA: return 2;
+	default: return -1;
+	}
+}
+
+// 5.3x is the span of the desktop sniper camera, whose field of view narrows
+// from 70 to 15 degrees. The desktop photo camera narrows to 3 degrees; the
+// viewfinder stops at 8x, where the cropped eye image is already coarse.
+float GetTrackedScopeMaxZoomInternal(int slot)
+{
+	return slot == 2 ? 8.0f : 5.3f;
+}
+
 float GetTrackedScopeZoomInternal()
 {
+	const int slot = GetTrackedScopeZoomSlotInternal(gTrackedScopeWeaponType);
+	if(slot >= 0)
+		return gTrackedScopeZoom[slot];
 	switch(gTrackedScopeWeaponType){
-	case WEAPONTYPE_SNIPERRIFLE: return 2.5f;
-	case WEAPONTYPE_LASERSCOPE: return 3.0f;
 	case WEAPONTYPE_ROCKETLAUNCHER: return 1.8f;
-	case WEAPONTYPE_CAMERA: return 1.6f;
 	default: return 1.0f;
 	}
 }
 
-void ApplyTrackedScopeZoomToUv(float *scaleX, float *scaleY,
+void ApplyTrackedScopeZoomToUv(int eyeIndex, float *scaleX, float *scaleY,
 	float *offsetX, float *offsetY)
 {
-	if(!scaleX || !scaleY || !offsetX || !offsetY)
+	if(!scaleX || !scaleY || !offsetX || !offsetY ||
+	   (gTrackedScopeEye >= 0 && eyeIndex != gTrackedScopeEye))
 		return;
 	const float zoom = GetTrackedScopeZoomInternal();
 	if(zoom <= 1.0f)
@@ -11534,7 +11570,7 @@ void ResolveTrackedForegroundEye(int eyeIndex,
 	float eyeScaleY = (up+down)/(2.0f*gSourceTanY);
 	float eyeOffsetX = (gSourceTanX-left)/(2.0f*gSourceTanX);
 	float eyeOffsetY = (gSourceTanY-up)/(2.0f*gSourceTanY);
-	ApplyTrackedScopeZoomToUv(&eyeScaleX, &eyeScaleY,
+	ApplyTrackedScopeZoomToUv(eyeIndex, &eyeScaleX, &eyeScaleY,
 		&eyeOffsetX, &eyeOffsetY);
 	const float regionScaleX = (float)source->width/(float)parent->width;
 	const float regionScaleY = (float)source->height/(float)parent->height;
@@ -11624,7 +11660,8 @@ bool DrawEyeFxaa(EyeBuffer &eye, int eyeIndex)
 	float uvOffsetX = (gSourceTanX - left) / (2.0f * gSourceTanX);
 	// D3D textures use a top-left origin, unlike the GL source used below.
 	float uvOffsetY = (gSourceTanY - up) / (2.0f * gSourceTanY);
-	ApplyTrackedScopeZoomToUv(&uvScaleX, &uvScaleY, &uvOffsetX, &uvOffsetY);
+	ApplyTrackedScopeZoomToUv(eyeIndex, &uvScaleX, &uvScaleY,
+		&uvOffsetX, &uvOffsetY);
 	uint32 colorMode = 0;
 	float blurColor[4] = { 0.0f, 0.0f, 0.0f, 30.0f/255.0f };
 	float contrastMult[3] = { 1.0f, 1.0f, 1.0f };
@@ -11736,7 +11773,8 @@ bool DrawEyeDlaa(EyeBuffer &eye, int eyeIndex, RwCamera *camera,
 	float uvScaleY = (up + down) / (2.0f * gSourceTanY);
 	float uvOffsetX = (gSourceTanX - left) / (2.0f * gSourceTanX);
 	float uvOffsetY = (gSourceTanY - up) / (2.0f * gSourceTanY);
-	ApplyTrackedScopeZoomToUv(&uvScaleX, &uvScaleY, &uvOffsetX, &uvOffsetY);
+	ApplyTrackedScopeZoomToUv(eyeIndex, &uvScaleX, &uvScaleY,
+		&uvOffsetX, &uvOffsetY);
 	uint32 colorMode = 0;
 	float blurColor[4] = { 0.0f, 0.0f, 0.0f, 30.0f/255.0f };
 	float contrastMult[3] = { 1.0f, 1.0f, 1.0f };
@@ -11838,7 +11876,7 @@ bool DrawEyeFsr2Output(EyeBuffer &eye, int eyeIndex,
 	float uvScaleY = (up + down) / (2.0f * gSourceTanY);
 	float uvOffsetX = (gSourceTanX - left) / (2.0f * gSourceTanX);
 	float uvOffsetY = (gSourceTanY - up) / (2.0f * gSourceTanY);
-	ApplyTrackedScopeZoomToUv(&uvScaleX, &uvScaleY,
+	ApplyTrackedScopeZoomToUv(eyeIndex, &uvScaleX, &uvScaleY,
 		&uvOffsetX, &uvOffsetY);
 	uint32 colorMode = 0;
 	float blurColor[4] = { 0.0f, 0.0f, 0.0f, 30.0f/255.0f };
@@ -12112,7 +12150,7 @@ bool DrawEyeFxaa(EyeBuffer &eye, int eyeIndex)
 	float uvScaleY=(up+down)/(2.0f*gSourceTanY);
 	float uvOffsetX=(gSourceTanX-left)/(2.0f*gSourceTanX);
 	float uvOffsetY=(gSourceTanY-down)/(2.0f*gSourceTanY);
-	ApplyTrackedScopeZoomToUv(&uvScaleX,&uvScaleY,&uvOffsetX,&uvOffsetY);
+	ApplyTrackedScopeZoomToUv(eyeIndex,&uvScaleX,&uvScaleY,&uvOffsetX,&uvOffsetY);
 	glUniform1i(gFxaaTextureUniform,0);
 	glUniform2f(gFxaaInverseSizeUniform,1.0f/eye.swapchain.width,1.0f/eye.swapchain.height);
 	glUniform2f(gFxaaUvScaleUniform,uvScaleX,uvScaleY);
@@ -13883,6 +13921,10 @@ void ChangeVrMenuValue(int direction)
 		gPhysicalScopeAimEnabled = !gPhysicalScopeAimEnabled;
 		SaveVrSetting("PhysicalScopeAim", gPhysicalScopeAimEnabled);
 		ResetTrackedScopeState();
+		break;
+	case VR_MAIN_SCOPE_OTHER_EYE:
+		gScopeOtherEyeDark = !gScopeOtherEyeDark;
+		SaveVrSetting("ScopeOtherEyeDark", gScopeOtherEyeDark);
 		break;
 	case VR_MAIN_AIM_DIRECTION:
 		gHeadAimEnabled = !gHeadAimEnabled;
@@ -15755,6 +15797,45 @@ bool UpdateTeleportInput(const XrVector2f &leftStick)
 	return false;
 }
 
+// Zooms an active sniper or laser scope optic or the camera viewfinder with
+// the right stick: up zooms in, down zooms out, and full deflection doubles or
+// halves the magnification per second, from 1x to the weapon's maximum.
+// Returns true while the stick belongs to the optic instead of turning.
+bool UpdateTrackedScopeZoom(const XrVector2f &stick)
+{
+	const double now = PerfNowMs();
+	const double last = gTrackedScopeZoomLastInput;
+	gTrackedScopeZoomLastInput = now;
+	const int slot = IsTrackedScopeActive() ?
+		GetTrackedScopeZoomSlotInternal(gTrackedScopeWeaponType) : -1;
+	if(slot < 0)
+		return false;
+	const float deadZone = 0.25f;
+	const float amount = fabsf(stick.y);
+	if(last != 0 && amount > deadZone && amount >= fabsf(stick.x)){
+		const float seconds = Min((float)((now-last)/1000.0), 0.1f);
+		const float speed = (amount-deadZone)/(1.0f-deadZone);
+		const float factor = powf(2.0f, copysignf(speed*seconds, stick.y));
+		gTrackedScopeZoom[slot] =
+			clamp(gTrackedScopeZoom[slot]*factor, 1.0f,
+				GetTrackedScopeMaxZoomInternal(slot));
+		gTrackedScopeZoomShownAt = GetTickCount64();
+	}
+	return true;
+}
+
+bool GetTrackedScopeZoomLabel(float *zoom)
+{
+	// The magnification is shown for 1.5 seconds after the optic comes up
+	// and after every change.
+	if(!zoom || GetTrackedScopeZoomSlotInternal(gTrackedScopeWeaponType) < 0 ||
+	   !IsTrackedScopeActive() ||
+	   GetTickCount64()-gTrackedScopeZoomShownAt >= 1500ULL)
+		return false;
+	*zoom = GetTrackedScopeZoomInternal();
+	return true;
+}
+
 void ApplySnapTurn(float stickX)
 {
 	if(gTurnMode != VR_TURN_SNAP || FindPlayerVehicle() ||
@@ -16327,7 +16408,11 @@ bool ApplyTouchInput(CControllerState *state)
 		MergeAxis(state->LeftStickX, AxisValue(moveX));
 		MergeAxis(state->LeftStickY, AxisValue(-moveY));
 	}
-	ApplySnapTurn(sticks[1].x);
+	const bool scopeZoom = UpdateTrackedScopeZoom(sticks[1]);
+	if(scopeZoom)
+		gSnapTurnStickLatched = fabsf(sticks[1].x) >= 0.35f;
+	else
+		ApplySnapTurn(sticks[1].x);
 	if(!weaponLeftShortcut && !weaponRightShortcut){
 		const float physicalTurnScale =
 			(float)gTurnSensitivityPercent/100.0f;
@@ -16337,7 +16422,7 @@ bool ApplyTouchInput(CControllerState *state)
 			// RC aircraft use the right stick for yaw.  Locomotion turn mode
 			// and sensitivity must never consume or rescale that mission input.
 			MergeAxis(state->RightStickX, AxisValue(sticks[1].x));
-		}else if(gTurnMode != VR_TURN_SNAP){
+		}else if(gTurnMode != VR_TURN_SNAP && !scopeZoom){
 			MergeAxis(state->RightStickX, AxisValue(clamp(
 				sticks[1].x*physicalTurnScale, -1.0f, 1.0f)));
 		}
@@ -16345,7 +16430,8 @@ bool ApplyTouchInput(CControllerState *state)
 		// selected SNAP/SMOOTH mode continues to control the physical right stick.
 		MergeAxis(state->RightStickX, AxisValue(clamp(
 			headSteeringAxis*headTurnScale, -1.0f, 1.0f)));
-		MergeAxis(state->RightStickY, AxisValue(-sticks[1].y));
+		if(!scopeZoom)
+			MergeAxis(state->RightStickY, AxisValue(-sticks[1].y));
 	}
 	MergeButton(state->LeftShoulder2, weaponLeftShortcut);
 	MergeButton(state->RightShoulder2, weaponRightShortcut);
@@ -17945,7 +18031,10 @@ void UpdateTrackedScopeReticleTarget()
 	if((!physicalScopeNeedsTarget && !HasTrackedHeadAimWeaponInternal()) ||
 	   !gFramePrepared || !IsTrackedScopeGameplaySafe())
 		return;
-	const XrVector3f eyeCentre = {
+	// A one-eyed optic centres its reticle on that eye's view axis.
+	const XrVector3f eyeCentre = physicalScopeNeedsTarget &&
+		gTrackedScopeEye >= 0 ?
+		gLocatedViews[gTrackedScopeEye].pose.position : XrVector3f{
 		(gLocatedViews[0].pose.position.x+gLocatedViews[1].pose.position.x)*0.5f,
 		(gLocatedViews[0].pose.position.y+gLocatedViews[1].pose.position.y)*0.5f,
 		(gLocatedViews[0].pose.position.z+gLocatedViews[1].pose.position.z)*0.5f
@@ -18282,6 +18371,27 @@ bool GetTrackedScopeMetrics(int hand, int weaponType, bool relaxed,
 	return true;
 }
 
+// Picks the eye that looks through the optic: the one closer to the weapon's
+// sight line, or the eye on the side of the weapon hand if there is no line.
+int FindTrackedScopeEyeInternal(int hand, int weaponType)
+{
+	if(weaponType == WEAPONTYPE_CAMERA)
+		return -1;
+	CVector sightPosition, sightDirection;
+	if(!gFramePrepared ||
+	   !BuildTrackedWeaponAimInternal(hand, weaponType, &sightPosition,
+	   &sightDirection, false) || sightDirection.MagnitudeSqr() < 0.0001f)
+		return hand == 0 ? 0 : 1;
+	sightDirection.Normalise();
+	float distance[EYE_COUNT];
+	for(int eye = 0; eye < EYE_COUNT; eye++){
+		const CVector toEye = gBaseCamera.GetPosition()+
+			ToGameVector(gLocatedViews[eye].pose.position)-sightPosition;
+		distance[eye] = CrossProduct(toEye, sightDirection).Magnitude();
+	}
+	return distance[0] < distance[1] ? 0 : 1;
+}
+
 void SetTrackedScopeStateInternal(int hand, int weaponType)
 {
 	if(gTrackedScopeHand == hand && gTrackedScopeWeaponType == weaponType)
@@ -18297,10 +18407,13 @@ void SetTrackedScopeStateInternal(int hand, int weaponType)
 	for(int aimHand = 0; aimHand < EYE_COUNT; aimHand++)
 		gTrackedAimCacheValid[aimHand] = false;
 	ResetTemporalAaHistory();
-	if(hand >= 0)
-		debug("[OpenXR] Physical optic active: hand=%d weapon=%d\n",
-			hand, weaponType);
-	else if(wasActive)
+	gTrackedScopeEye = hand >= 0 ?
+		FindTrackedScopeEyeInternal(hand, weaponType) : -1;
+	if(hand >= 0){
+		gTrackedScopeZoomShownAt = GetTickCount64();
+		debug("[OpenXR] Physical optic active: hand=%d weapon=%d eye=%d\n",
+			hand, weaponType, gTrackedScopeEye);
+	}else if(wasActive)
 		debug("[OpenXR] Physical optic released\n");
 }
 
@@ -19051,6 +19164,18 @@ bool SubmitStereoFrame(RwCamera *camera)
 		const bool trackedScope = IsTrackedScopeActive();
 		hud.pose.position.x=trackedScope?0.0f:gHudOffsetXCm*0.01f;
 		hud.pose.position.y=trackedScope?0.0f:gHudOffsetYCm*0.01f;
+		if(trackedScope && gTrackedScopeEye >= 0){
+			// The mask and reticle sit 1.6 m away. Seen with both eyes they
+			// double while the eyes focus on a distant target, so only the
+			// eye behind the optic gets them, centred on its view axis.
+			const XrVector3f &a=gLocatedViews[0].pose.position;
+			const XrVector3f &b=gLocatedViews[1].pose.position;
+			const float halfIpd=0.5f*sqrtf((b.x-a.x)*(b.x-a.x)+
+				(b.y-a.y)*(b.y-a.y)+(b.z-a.z)*(b.z-a.z));
+			hud.eyeVisibility=gTrackedScopeEye==0?
+				XR_EYE_VISIBILITY_LEFT:XR_EYE_VISIBILITY_RIGHT;
+			hud.pose.position.x=gTrackedScopeEye==0?-halfIpd:halfIpd;
+		}
 		hud.pose.position.z=-1.6f;
 		if(trackedScope){
 			// Cover the complete Quest view while an opaque optic mask is active.
@@ -19063,6 +19188,23 @@ bool SubmitStereoFrame(RwCamera *camera)
 			hud.size.height=1.8f*hudScale*
 				(float)VR_HUD_HEIGHT/VR_HUD_WIDTH;
 		}
+	}
+	XrCompositionLayerQuad otherEye={XR_TYPE_COMPOSITION_LAYER_QUAD};
+	const bool darkOtherEye=showHud && gScopeOtherEyeDark &&
+		IsTrackedScopeActive() && gTrackedScopeEye >= 0;
+	if(darkOtherEye){
+		// An opaque layer in front of the other eye, sampled from the black
+		// strip RenderVrGameplayHud keeps at the left edge of the HUD image.
+		otherEye.space=gViewSpace;
+		otherEye.eyeVisibility=gTrackedScopeEye==0?
+			XR_EYE_VISIBILITY_RIGHT:XR_EYE_VISIBILITY_LEFT;
+		otherEye.subImage.swapchain=gHudSwapchain.handle;
+		otherEye.subImage.imageRect.offset={4,VR_HUD_HEIGHT/2};
+		otherEye.subImage.imageRect.extent={8,8};
+		otherEye.pose.orientation.w=1.0f;
+		otherEye.pose.position.z=-0.5f;
+		otherEye.size.width=8.0f;
+		otherEye.size.height=8.0f;
 	}
 	XrCompositionLayerQuad debugLayer={XR_TYPE_COMPOSITION_LAYER_QUAD};
 	if(showDebug){
@@ -19090,9 +19232,10 @@ bool SubmitStereoFrame(RwCamera *camera)
 		vrMenuLayer.size.height=vrMenuLayer.size.width*
 			(float)VR_MENU_HEIGHT/VR_MENU_WIDTH;
 	}
-	const XrCompositionLayerBaseHeader *layers[4+WristHudSettings::PANEL_COUNT]; uint32_t count=0;
+	const XrCompositionLayerBaseHeader *layers[5+WristHudSettings::PANEL_COUNT]; uint32_t count=0;
 	layers[count++]=(const XrCompositionLayerBaseHeader*)&projection;
 	if(showHud) layers[count++]=(const XrCompositionLayerBaseHeader*)&hud;
+	if(darkOtherEye) layers[count++]=(const XrCompositionLayerBaseHeader*)&otherEye;
 	if(showHud)
 		for(int panel = 0; panel < WristHudSettings::PANEL_COUNT; panel++)
 			if(gWristHudLayerMask & (1u << panel))
