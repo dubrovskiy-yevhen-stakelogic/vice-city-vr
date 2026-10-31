@@ -32,6 +32,13 @@ decrease/increase values. **A or R3** selects, **B or L3** goes back.
 | Grip near a holster | Draw / return a physical weapon |
 | Free-hand grip near a supported weapon | Two-hand support |
 | Trigger on the hand holding a weapon | Fire / use that weapon |
+| Right stick up/down at a sniper or laser scope or the camera | Zoom in / out |
+
+Raise a sniper rifle, laser scope or camera to your eye to look through it.
+While it is up, the right stick zooms instead of turning: the sniper rifle and
+laser scope from 1x to 5.3x, the camera from 1x to 8x. The magnification is
+shown briefly at the bottom of the view, and each weapon keeps its own until
+the game exits.
 
 Physical weapon, reload and holster interactions take priority over ordinary
 grip bindings. With tracked hands enabled, use physical weapons rather than

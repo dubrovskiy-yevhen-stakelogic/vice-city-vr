@@ -110,6 +110,7 @@ bool BuildTrackedWeaponAimInternal(int hand, int weaponType, CVector *source,
 void UpdateTrackedScopeState();
 void ResetTrackedScopeState();
 void ClearDroppedWeapon(int hand);
+int GetWristAmmoSlotInternal(int hand);
 bool IsHandBusyWithReload(int hand);
 void ResetTeleportInteraction();
 
@@ -212,6 +213,7 @@ enum eVrMainMenuItem
 	VR_MAIN_HOLSTER_HIGHLIGHTS,
 	VR_MAIN_MANUAL_RELOAD,
 	VR_MAIN_SCOPE_AIM,
+	VR_MAIN_SCOPE_OTHER_EYE,
 	VR_MAIN_AIM_DIRECTION,
 	VR_MAIN_VEHICLE_SETTINGS,
 	VR_MAIN_LOCOMOTION_SETTINGS,
@@ -410,6 +412,7 @@ enum eVrHudMenuItem
 	VR_HUD_WRIST_GAZE,
 	VR_HUD_WRIST_RANGE,
 	VR_HUD_WRIST_VEHICLE,
+	VR_HUD_WRIST_AMMO_HANDS,
 	VR_HUD_CLASSIC_WEAPON,
 	VR_HUD_CLASSIC_CLOCK,
 	VR_HUD_BACK,
@@ -734,6 +737,16 @@ ULONGLONG gTrackedScopeCandidateSince;
 ULONGLONG gTrackedScopeInvalidSince;
 bool gTrackedScopeReticleTargetValid;
 CVector gTrackedScopeReticleTarget;
+// Magnification of the sniper and laser scope optics and the camera
+// viewfinder. The right stick changes it while the optic is active; each
+// weapon keeps its value until the game exits.
+float gTrackedScopeZoom[3] = { 2.5f, 3.0f, 1.6f };
+ULONGLONG gTrackedScopeZoomShownAt;
+// PerfNowMs of the last stick update; GetTickCount64 only advances every
+// 10-16 ms, which would zoom in visible steps at 90-120 Hz.
+double gTrackedScopeZoomLastInput;
+// Eye behind the active optic, or -1 while both eyes see it (camera viewfinder).
+int gTrackedScopeEye = -1;
 struct PhysicalMeleeStrike
 {
 	bool pending;
@@ -814,6 +827,9 @@ bool gFlatModeEnabled = false;
 // camera engaged permanently while FlatMode is on, movement included. The V
 // key toggles it against classic third person at runtime.
 bool gFlatFirstPersonEnabled = true;
+// Desktop window during VR: 0 = unchanged, 1 = left eye filling the window
+// (cropped), 2 = whole left eye with black bars. The headset is unaffected.
+int gDesktopMirrorMode = 0;
 bool gFlatViewKeyWasDown;
 uint32 gTemporalAaReleasePending;
 bool gDlaaStereoActivationReady;
@@ -856,6 +872,8 @@ int gWeaponHapticsStrengthPercent = 100;
 bool gWeaponHolsterHighlightsEnabled = false;
 bool gManualReloadEnabled = false;
 bool gPhysicalScopeAimEnabled = true;
+// Black out the eye that is not behind an active sniper, laser or rocket optic.
+bool gScopeOtherEyeDark = true;
 bool gHeadAimEnabled;
 bool gWeaponGripLockEnabled;
 int gCarDrivingType;
@@ -942,7 +960,9 @@ int gHudOffsetYCm = 0;
 WristHudSettings gWristHud;
 unsigned int gWristHudLayerMask = 0;
 bool gWristHudFailed = false;
-XrCompositionLayerQuad gWristHudLayers[WristHudSettings::PANEL_COUNT];
+// One layer per wrist panel, plus the ammo panel on the other wrist.
+enum { WRIST_AMMO_OTHER = WristHudSettings::PANEL_COUNT, WRIST_LAYER_COUNT };
+XrCompositionLayerQuad gWristHudLayers[WRIST_LAYER_COUNT];
 int gTrafficPedPercent = 135;
 int gTrafficCarPercent = 135;
 // Calibration integers are stored in half-units: 1 = 0.5 cm or 0.5 degree.
@@ -2180,6 +2200,11 @@ ID3D12PipelineState *gTrackedForegroundResolvePipeline;
 bool gTrackedForegroundResolveAvailable;
 void DestroyTrackedForegroundResolvePipeline();
 bool EnsureTrackedForegroundResolvePipeline();
+ID3D12RootSignature *gDesktopMirrorRootSignature;
+ID3D12PipelineState *gDesktopMirrorPipeline;
+DXGI_FORMAT gDesktopMirrorFormat;
+bool gDesktopMirrorFailed;
+void DestroyDesktopMirrorPipeline();
 #endif
 Swapchain gHudSwapchain;
 Swapchain gWristHudSwapchain;
@@ -2421,6 +2446,8 @@ void LoadVrSettings()
 	gFlatModeEnabled = GetPrivateProfileIntA("VR", "FlatMode", 0, path) != 0;
 	gFlatFirstPersonEnabled =
 		GetPrivateProfileIntA("VR", "FlatFirstPerson", 1, path) != 0;
+	gDesktopMirrorMode = Min(Max(GetPrivateProfileIntA("VR", "DesktopMirror",
+		0, path), 0), 2);
 	// Keep loading the experimental model behind an explicit opt-in, but allow
 	// that opt-in in both flat and OpenXR sessions. Presentation mode 0 is a
 	// cheap DLAA baseline; 1..4 are fullscreen feature-18 model profiles.
@@ -2550,6 +2577,8 @@ void LoadVrSettings()
 		GetPrivateProfileIntA("VR", "ManualReloading", 0, path) != 0;
 	gPhysicalScopeAimEnabled =
 		GetPrivateProfileIntA("VR", "PhysicalScopeAim", 1, path) != 0;
+	gScopeOtherEyeDark =
+		GetPrivateProfileIntA("VR", "ScopeOtherEyeDark", 1, path) != 0;
 	gHeadAimEnabled =
 		GetPrivateProfileIntA("VR", "HeadAim", 0, path) != 0;
 	gWeaponGripLockEnabled =
@@ -7580,6 +7609,7 @@ bool UpdateVrMenuSwapchain()
 			sprintf(rows[VR_HUD_WRIST_GAZE], "SHOW PANELS  < %s >", gWristHud.gaze ? "WHEN LOOKED AT" : "ALWAYS");
 			sprintf(rows[VR_HUD_WRIST_RANGE], "LOOK RANGE  < %d CM >", gWristHud.gazeRangeCm);
 			sprintf(rows[VR_HUD_WRIST_VEHICLE], "PANELS WHILE DRIVING  < %s >", gWristHud.inVehicle ? "IMMERSIVE ONLY" : "OFF");
+			sprintf(rows[VR_HUD_WRIST_AMMO_HANDS], "AMMO PANEL  < %s >", gWristHud.ammoPerHand ? "EACH HAND" : "ONE HAND");
 			sprintf(rows[VR_HUD_CLASSIC_WEAPON], "CLASSIC WEAPON PANEL  < %s >", gWristHud.classicWeapon ? "ON" : "OFF");
 			sprintf(rows[VR_HUD_CLASSIC_CLOCK], "CLASSIC CLOCK  < %s >", gWristHud.classicClock ? "ON" : "OFF");
 			strcpy(rows[VR_HUD_BACK], "BACK TO SETTINGS");
@@ -7681,6 +7711,8 @@ bool UpdateVrMenuSwapchain()
 		gManualReloadEnabled ? "ON" : "OFF");
 	sprintf(rows[VR_MAIN_SCOPE_AIM], "PHYSICAL SCOPE AIM  < %s >",
 		gPhysicalScopeAimEnabled ? "ON" : "OFF");
+	sprintf(rows[VR_MAIN_SCOPE_OTHER_EYE], "SCOPE OTHER EYE  < %s >",
+		gScopeOtherEyeDark ? "DARK" : "VISIBLE");
 	sprintf(rows[VR_MAIN_AIM_DIRECTION], "AIM DIRECTION  < %s >",
 		gHeadAimEnabled ? "HEAD" : "CONTROLLER");
 	strcpy(rows[VR_MAIN_VEHICLE_SETTINGS], "VEHICLE SETTINGS  < OPEN >");
@@ -8140,6 +8172,7 @@ void DestroySessionResources()
 	rw::d3d12::setPresentInterval(gFlatModeEnabled ?
 		(uint32)FrontEndMenuManager.m_PrefsVsync : 1u);
 	DestroyTrackedForegroundResolvePipeline();
+	DestroyDesktopMirrorPipeline();
 #endif
 	DestroyStereoRenderTargets();
 	for(int eye = 0; eye < EYE_COUNT; eye++){
@@ -10697,21 +10730,40 @@ bool IsPhysicalScopeWeaponTypeInternal(int weaponType)
 	}
 }
 
+int GetTrackedScopeZoomSlotInternal(int weaponType)
+{
+	switch(weaponType){
+	case WEAPONTYPE_SNIPERRIFLE: return 0;
+	case WEAPONTYPE_LASERSCOPE: return 1;
+	case WEAPONTYPE_CAMERA: return 2;
+	default: return -1;
+	}
+}
+
+// 5.3x is the span of the desktop sniper camera, whose field of view narrows
+// from 70 to 15 degrees. The desktop photo camera narrows to 3 degrees; the
+// viewfinder stops at 8x, where the cropped eye image is already coarse.
+float GetTrackedScopeMaxZoomInternal(int slot)
+{
+	return slot == 2 ? 8.0f : 5.3f;
+}
+
 float GetTrackedScopeZoomInternal()
 {
+	const int slot = GetTrackedScopeZoomSlotInternal(gTrackedScopeWeaponType);
+	if(slot >= 0)
+		return gTrackedScopeZoom[slot];
 	switch(gTrackedScopeWeaponType){
-	case WEAPONTYPE_SNIPERRIFLE: return 2.5f;
-	case WEAPONTYPE_LASERSCOPE: return 3.0f;
 	case WEAPONTYPE_ROCKETLAUNCHER: return 1.8f;
-	case WEAPONTYPE_CAMERA: return 1.6f;
 	default: return 1.0f;
 	}
 }
 
-void ApplyTrackedScopeZoomToUv(float *scaleX, float *scaleY,
+void ApplyTrackedScopeZoomToUv(int eyeIndex, float *scaleX, float *scaleY,
 	float *offsetX, float *offsetY)
 {
-	if(!scaleX || !scaleY || !offsetX || !offsetY)
+	if(!scaleX || !scaleY || !offsetX || !offsetY ||
+	   (gTrackedScopeEye >= 0 && eyeIndex != gTrackedScopeEye))
 		return;
 	const float zoom = GetTrackedScopeZoomInternal();
 	if(zoom <= 1.0f)
@@ -11536,6 +11588,300 @@ bool EnsureTrackedForegroundResolvePipeline()
 	return true;
 }
 
+void DestroyDesktopMirrorPipeline()
+{
+	if(gDesktopMirrorPipeline){
+		gDesktopMirrorPipeline->Release();
+		gDesktopMirrorPipeline = nil;
+	}
+	if(gDesktopMirrorRootSignature){
+		gDesktopMirrorRootSignature->Release();
+		gDesktopMirrorRootSignature = nil;
+	}
+}
+
+bool EnsureDesktopMirrorPipeline(DXGI_FORMAT targetFormat)
+{
+	if(gDesktopMirrorPipeline && gDesktopMirrorRootSignature &&
+	   gDesktopMirrorFormat == targetFormat)
+		return true;
+	// A failed compile would otherwise be retried every frame.
+	if(gDesktopMirrorFailed)
+		return false;
+	DestroyDesktopMirrorPipeline();
+	ID3D12Device *device = rw::d3d12::getDevice();
+	if(!device)
+		return false;
+	gDesktopMirrorFailed = true;
+
+	D3D12_DESCRIPTOR_RANGE range = {};
+	range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	range.NumDescriptors = 1;
+	range.BaseShaderRegister = 0;
+	range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	D3D12_ROOT_PARAMETER params[2] = {};
+	params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+	params[0].Constants.ShaderRegister = 0;
+	params[0].Constants.Num32BitValues = 6;
+	params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	params[1].DescriptorTable.NumDescriptorRanges = 1;
+	params[1].DescriptorTable.pDescriptorRanges = &range;
+	params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	D3D12_STATIC_SAMPLER_DESC sampler = {};
+	sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+	sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler.MaxLOD = D3D12_FLOAT32_MAX;
+	sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	D3D12_ROOT_SIGNATURE_DESC signature = {};
+	signature.NumParameters = 2;
+	signature.pParameters = params;
+	signature.NumStaticSamplers = 1;
+	signature.pStaticSamplers = &sampler;
+	ID3DBlob *serialized = nil;
+	ID3DBlob *errors = nil;
+	HRESULT result = D3D12SerializeRootSignature(&signature,
+		D3D_ROOT_SIGNATURE_VERSION_1, &serialized, &errors);
+	if(FAILED(result)){
+		if(errors)
+			VrLog("Desktop mirror root signature: %s\n",
+				(const char*)errors->GetBufferPointer());
+		if(errors) errors->Release();
+		if(serialized) serialized->Release();
+		return false;
+	}
+	if(errors) errors->Release();
+	result = device->CreateRootSignature(0, serialized->GetBufferPointer(),
+		serialized->GetBufferSize(), IID_PPV_ARGS(&gDesktopMirrorRootSignature));
+	serialized->Release();
+	if(FAILED(result)){
+		DestroyDesktopMirrorPipeline();
+		return false;
+	}
+
+	// Four bilinear taps a quarter of a window pixel apart average roughly a
+	// 4x4 texel footprint, enough to keep the ~3x downscale from shimmering.
+	static const char *shaderSource =
+		"cbuffer Constants : register(b0) { float2 uvScale; float2 uvOffset;"
+		" float2 tapStep; };"
+		"Texture2D image : register(t0); SamplerState imageSampler : register(s0);"
+		"struct VSOut { float4 position : SV_POSITION; float2 uv : TEXCOORD0; };"
+		"VSOut VSMain(uint id : SV_VertexID) { VSOut output;"
+		" float2 position=id==0?float2(-1.0,-1.0):"
+		"                 id==1?float2(-1.0,3.0):float2(3.0,-1.0);"
+		" output.position=float4(position,0.0,1.0);"
+		" output.uv=float2((position.x+1.0)*0.5,(1.0-position.y)*0.5);"
+		" return output; }"
+		"float4 PSMain(VSOut input) : SV_TARGET {"
+		" float2 uv=input.uv*uvScale+uvOffset;"
+		" if(any(uv<0.0)||any(uv>1.0)) return float4(0.0,0.0,0.0,1.0);"
+		" float3 colour="
+		"  image.Sample(imageSampler,uv+float2(-tapStep.x,-tapStep.y)).rgb+"
+		"  image.Sample(imageSampler,uv+float2( tapStep.x,-tapStep.y)).rgb+"
+		"  image.Sample(imageSampler,uv+float2(-tapStep.x, tapStep.y)).rgb+"
+		"  image.Sample(imageSampler,uv+float2( tapStep.x, tapStep.y)).rgb;"
+		" return float4(colour*0.25,1.0); }";
+	ID3DBlob *vertexShader = nil;
+	ID3DBlob *pixelShader = nil;
+	errors = nil;
+	result = D3DCompile(shaderSource, strlen(shaderSource),
+		"desktop_mirror", nil, nil, "VSMain", "vs_5_0", 0, 0,
+		&vertexShader, &errors);
+	if(FAILED(result)){
+		if(errors)
+			VrLog("Desktop mirror vertex shader: %s\n",
+				(const char*)errors->GetBufferPointer());
+		if(errors) errors->Release();
+		if(vertexShader) vertexShader->Release();
+		DestroyDesktopMirrorPipeline();
+		return false;
+	}
+	if(errors){ errors->Release(); errors = nil; }
+	result = D3DCompile(shaderSource, strlen(shaderSource),
+		"desktop_mirror", nil, nil, "PSMain", "ps_5_0", 0, 0,
+		&pixelShader, &errors);
+	if(FAILED(result)){
+		if(errors)
+			VrLog("Desktop mirror pixel shader: %s\n",
+				(const char*)errors->GetBufferPointer());
+		if(errors) errors->Release();
+		vertexShader->Release();
+		if(pixelShader) pixelShader->Release();
+		DestroyDesktopMirrorPipeline();
+		return false;
+	}
+	if(errors) errors->Release();
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = {};
+	desc.pRootSignature = gDesktopMirrorRootSignature;
+	desc.VS.pShaderBytecode = vertexShader->GetBufferPointer();
+	desc.VS.BytecodeLength = vertexShader->GetBufferSize();
+	desc.PS.pShaderBytecode = pixelShader->GetBufferPointer();
+	desc.PS.BytecodeLength = pixelShader->GetBufferSize();
+	desc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	desc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+	desc.RasterizerState.DepthClipEnable = TRUE;
+	desc.BlendState.RenderTarget[0].RenderTargetWriteMask =
+		D3D12_COLOR_WRITE_ENABLE_ALL;
+	desc.DepthStencilState.DepthEnable = FALSE;
+	desc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+	desc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+	desc.SampleMask = UINT_MAX;
+	desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	desc.NumRenderTargets = 1;
+	desc.RTVFormats[0] = targetFormat;
+	desc.SampleDesc.Count = 1;
+	result = device->CreateGraphicsPipelineState(&desc,
+		IID_PPV_ARGS(&gDesktopMirrorPipeline));
+	vertexShader->Release();
+	pixelShader->Release();
+	if(FAILED(result)){
+		DestroyDesktopMirrorPipeline();
+		return false;
+	}
+	gDesktopMirrorFormat = targetFormat;
+	gDesktopMirrorFailed = false;
+	return true;
+}
+
+// Draws the finished left eye into the desktop back buffer so spectators see
+// the headset view. Runs while the frame list and the acquired eye image are
+// both still open, right before they are submitted and released.
+void DrawDesktopMirror()
+{
+	if(gDesktopMirrorMode == 0 || !gEye[0].swapchain.acquired ||
+	   gEye[0].swapchain.width <= 0 || gEye[0].swapchain.height <= 0)
+		return;
+	ID3D12Resource *target = nil;
+	ID3D12Resource *source = AcquiredTexture(gEye[0].swapchain);
+	if(!source || !rw::d3d12::getCurrentBackBuffer(&target) || !target)
+		return;
+	const D3D12_RESOURCE_DESC sourceDesc = source->GetDesc();
+	const D3D12_RESOURCE_DESC targetDesc = target->GetDesc();
+	// The eye holds display-referred values, as does the UNORM back buffer.
+	// Read a typeless image as UNORM. An sRGB image decodes on read, so write
+	// through an sRGB view of the back buffer to encode it again unchanged.
+	const bool srgbSource =
+		sourceDesc.Format == DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+	const DXGI_FORMAT sourceFormat =
+		sourceDesc.Format == DXGI_FORMAT_R8G8B8A8_TYPELESS ?
+		DXGI_FORMAT_R8G8B8A8_UNORM : sourceDesc.Format;
+	const DXGI_FORMAT targetFormat = srgbSource ?
+		DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
+	if(!EnsureDesktopMirrorPipeline(targetFormat))
+		return;
+	ID3D12Device *device = rw::d3d12::getDevice();
+	ID3D12GraphicsCommandList *list = rw::d3d12::getCommandList();
+	ID3D12DescriptorHeap *heap = rw::d3d12::getShaderResourceHeap();
+	if(!device || !list || !heap)
+		return;
+	D3D12_CPU_DESCRIPTOR_HANDLE sourceCpu = {};
+	D3D12_GPU_DESCRIPTOR_HANDLE sourceGpu = {};
+	D3D12_CPU_DESCRIPTOR_HANDLE targetView = {};
+	uint32 sourceIndex = UINT32_MAX;
+	uint32 targetIndex = UINT32_MAX;
+	if(!rw::d3d12::allocateShaderResourceDescriptor(&sourceCpu, &sourceGpu,
+	   &sourceIndex))
+		return;
+	if(!rw::d3d12::allocateRenderTargetDescriptor(&targetView, &targetIndex)){
+		rw::d3d12::deferDescriptorRelease(sourceIndex, UINT32_MAX, UINT32_MAX);
+		return;
+	}
+	D3D12_SHADER_RESOURCE_VIEW_DESC sourceViewDesc = {};
+	sourceViewDesc.Format = sourceFormat;
+	sourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	sourceViewDesc.Shader4ComponentMapping =
+		D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	sourceViewDesc.Texture2D.MipLevels = 1;
+	device->CreateShaderResourceView(source, &sourceViewDesc, sourceCpu);
+	D3D12_RENDER_TARGET_VIEW_DESC targetViewDesc = {};
+	targetViewDesc.Format = targetFormat;
+	targetViewDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+	device->CreateRenderTargetView(target, &targetViewDesc, targetView);
+
+	const float sourceWidth = (float)gEye[0].swapchain.width;
+	const float sourceHeight = (float)gEye[0].swapchain.height;
+	const float targetWidth = (float)targetDesc.Width;
+	const float targetHeight = (float)targetDesc.Height;
+	const float sourceAspect = sourceWidth/sourceHeight;
+	const float targetAspect = targetWidth/targetHeight;
+	// Fraction of the eye image spanned by the window on each axis.
+	float spanX = 1.0f;
+	float spanY = 1.0f;
+	float centreX = 0.5f;
+	float centreY = 0.5f;
+	if(gDesktopMirrorMode == 1){
+		// Crop the axis that is too long. Centre on the optical axis, which
+		// sits off the image centre in asymmetric headset frusta.
+		if(targetAspect > sourceAspect)
+			spanY = sourceAspect/targetAspect;
+		else
+			spanX = targetAspect/sourceAspect;
+		const XrFovf &fov = gRenderFov[0];
+		const float left = -tanf(fov.angleLeft);
+		const float right = tanf(fov.angleRight);
+		const float up = tanf(fov.angleUp);
+		const float down = -tanf(fov.angleDown);
+		if(left+right > 0.0f)
+			centreX = left/(left+right);
+		if(up+down > 0.0f)
+			centreY = up/(up+down);
+		centreX = Min(Max(centreX, spanX*0.5f), 1.0f-spanX*0.5f);
+		centreY = Min(Max(centreY, spanY*0.5f), 1.0f-spanY*0.5f);
+	}else{
+		// Pad the axis that is too short; the shader fills it with black.
+		if(targetAspect > sourceAspect)
+			spanX = targetAspect/sourceAspect;
+		else
+			spanY = sourceAspect/targetAspect;
+	}
+	struct Constants {
+		float uvScale[2];
+		float uvOffset[2];
+		float tapStep[2];
+	} constants = {};
+	constants.uvScale[0] = spanX;
+	constants.uvScale[1] = spanY;
+	constants.uvOffset[0] = centreX-spanX*0.5f;
+	constants.uvOffset[1] = centreY-spanY*0.5f;
+	constants.tapStep[0] = 0.25f*spanX/targetWidth;
+	constants.tapStep[1] = 0.25f*spanY/targetHeight;
+
+	D3D12_RESOURCE_BARRIER barrier = {};
+	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	barrier.Transition.pResource = source;
+	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	list->ResourceBarrier(1, &barrier);
+	list->OMSetRenderTargets(1, &targetView, FALSE, nil);
+	D3D12_VIEWPORT viewport = { 0.0f, 0.0f, targetWidth, targetHeight, 0.0f, 1.0f };
+	D3D12_RECT scissor = { 0, 0, (LONG)targetDesc.Width, (LONG)targetDesc.Height };
+	list->RSSetViewports(1, &viewport);
+	list->RSSetScissorRects(1, &scissor);
+	rw::d3d12::resetWorldDrawState();
+	list->SetDescriptorHeaps(1, &heap);
+	list->SetGraphicsRootSignature(gDesktopMirrorRootSignature);
+	list->SetPipelineState(gDesktopMirrorPipeline);
+	list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	list->SetGraphicsRoot32BitConstants(0, 6, &constants, 0);
+	list->SetGraphicsRootDescriptorTable(1, sourceGpu);
+	list->DrawInstanced(3, 1, 0, 0);
+	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	list->ResourceBarrier(1, &barrier);
+	rw::d3d12::deferDescriptorRelease(sourceIndex, targetIndex, UINT32_MAX);
+	static bool logged;
+	if(!logged){
+		logged = true;
+		VrLog("Desktop mirror active: mode=%d eye=%dx%d format=%u window=%llux%u\n",
+			gDesktopMirrorMode, gEye[0].swapchain.width, gEye[0].swapchain.height,
+			(unsigned)sourceDesc.Format, (unsigned long long)targetDesc.Width,
+			targetDesc.Height);
+	}
+}
+
 bool AreCopyCompatibleFormats(DXGI_FORMAT source, DXGI_FORMAT target)
 {
 	if(source == target)
@@ -11644,7 +11990,7 @@ void ResolveTrackedForegroundEye(int eyeIndex,
 	float eyeScaleY = (up+down)/(2.0f*gSourceTanY);
 	float eyeOffsetX = (gSourceTanX-left)/(2.0f*gSourceTanX);
 	float eyeOffsetY = (gSourceTanY-up)/(2.0f*gSourceTanY);
-	ApplyTrackedScopeZoomToUv(&eyeScaleX, &eyeScaleY,
+	ApplyTrackedScopeZoomToUv(eyeIndex, &eyeScaleX, &eyeScaleY,
 		&eyeOffsetX, &eyeOffsetY);
 	const float regionScaleX = (float)source->width/(float)parent->width;
 	const float regionScaleY = (float)source->height/(float)parent->height;
@@ -11734,7 +12080,8 @@ bool DrawEyeFxaa(EyeBuffer &eye, int eyeIndex)
 	float uvOffsetX = (gSourceTanX - left) / (2.0f * gSourceTanX);
 	// D3D textures use a top-left origin, unlike the GL source used below.
 	float uvOffsetY = (gSourceTanY - up) / (2.0f * gSourceTanY);
-	ApplyTrackedScopeZoomToUv(&uvScaleX, &uvScaleY, &uvOffsetX, &uvOffsetY);
+	ApplyTrackedScopeZoomToUv(eyeIndex, &uvScaleX, &uvScaleY,
+		&uvOffsetX, &uvOffsetY);
 	uint32 colorMode = 0;
 	float blurColor[4] = { 0.0f, 0.0f, 0.0f, 30.0f/255.0f };
 	float contrastMult[3] = { 1.0f, 1.0f, 1.0f };
@@ -11846,7 +12193,8 @@ bool DrawEyeDlaa(EyeBuffer &eye, int eyeIndex, RwCamera *camera,
 	float uvScaleY = (up + down) / (2.0f * gSourceTanY);
 	float uvOffsetX = (gSourceTanX - left) / (2.0f * gSourceTanX);
 	float uvOffsetY = (gSourceTanY - up) / (2.0f * gSourceTanY);
-	ApplyTrackedScopeZoomToUv(&uvScaleX, &uvScaleY, &uvOffsetX, &uvOffsetY);
+	ApplyTrackedScopeZoomToUv(eyeIndex, &uvScaleX, &uvScaleY,
+		&uvOffsetX, &uvOffsetY);
 	uint32 colorMode = 0;
 	float blurColor[4] = { 0.0f, 0.0f, 0.0f, 30.0f/255.0f };
 	float contrastMult[3] = { 1.0f, 1.0f, 1.0f };
@@ -11948,7 +12296,7 @@ bool DrawEyeFsr2Output(EyeBuffer &eye, int eyeIndex,
 	float uvScaleY = (up + down) / (2.0f * gSourceTanY);
 	float uvOffsetX = (gSourceTanX - left) / (2.0f * gSourceTanX);
 	float uvOffsetY = (gSourceTanY - up) / (2.0f * gSourceTanY);
-	ApplyTrackedScopeZoomToUv(&uvScaleX, &uvScaleY,
+	ApplyTrackedScopeZoomToUv(eyeIndex, &uvScaleX, &uvScaleY,
 		&uvOffsetX, &uvOffsetY);
 	uint32 colorMode = 0;
 	float blurColor[4] = { 0.0f, 0.0f, 0.0f, 30.0f/255.0f };
@@ -12222,7 +12570,7 @@ bool DrawEyeFxaa(EyeBuffer &eye, int eyeIndex)
 	float uvScaleY=(up+down)/(2.0f*gSourceTanY);
 	float uvOffsetX=(gSourceTanX-left)/(2.0f*gSourceTanX);
 	float uvOffsetY=(gSourceTanY-down)/(2.0f*gSourceTanY);
-	ApplyTrackedScopeZoomToUv(&uvScaleX,&uvScaleY,&uvOffsetX,&uvOffsetY);
+	ApplyTrackedScopeZoomToUv(eyeIndex,&uvScaleX,&uvScaleY,&uvOffsetX,&uvOffsetY);
 	glUniform1i(gFxaaTextureUniform,0);
 	glUniform2f(gFxaaInverseSizeUniform,1.0f/eye.swapchain.width,1.0f/eye.swapchain.height);
 	glUniform2f(gFxaaUvScaleUniform,uvScaleX,uvScaleY);
@@ -13649,6 +13997,10 @@ void ChangeVrMenuValue(int direction)
 			gWristHud.inVehicle = !gWristHud.inVehicle;
 			gWristHud.Save("WristPanelsInVehicle", gWristHud.inVehicle);
 			break;
+		case VR_HUD_WRIST_AMMO_HANDS:
+			gWristHud.ammoPerHand = !gWristHud.ammoPerHand;
+			gWristHud.Save("WristAmmoPerHand", gWristHud.ammoPerHand);
+			break;
 		case VR_HUD_CLASSIC_WEAPON:
 			gWristHud.classicWeapon = !gWristHud.classicWeapon;
 			gWristHud.Save("HudWeaponPanel", gWristHud.classicWeapon);
@@ -13993,6 +14345,10 @@ void ChangeVrMenuValue(int direction)
 		gPhysicalScopeAimEnabled = !gPhysicalScopeAimEnabled;
 		SaveVrSetting("PhysicalScopeAim", gPhysicalScopeAimEnabled);
 		ResetTrackedScopeState();
+		break;
+	case VR_MAIN_SCOPE_OTHER_EYE:
+		gScopeOtherEyeDark = !gScopeOtherEyeDark;
+		SaveVrSetting("ScopeOtherEyeDark", gScopeOtherEyeDark);
 		break;
 	case VR_MAIN_AIM_DIRECTION:
 		gHeadAimEnabled = !gHeadAimEnabled;
@@ -15978,6 +16334,45 @@ bool UpdateTeleportInput(const XrVector2f &leftStick)
 	return false;
 }
 
+// Zooms an active sniper or laser scope optic or the camera viewfinder with
+// the right stick: up zooms in, down zooms out, and full deflection doubles or
+// halves the magnification per second, from 1x to the weapon's maximum.
+// Returns true while the stick belongs to the optic instead of turning.
+bool UpdateTrackedScopeZoom(const XrVector2f &stick)
+{
+	const double now = PerfNowMs();
+	const double last = gTrackedScopeZoomLastInput;
+	gTrackedScopeZoomLastInput = now;
+	const int slot = IsTrackedScopeActive() ?
+		GetTrackedScopeZoomSlotInternal(gTrackedScopeWeaponType) : -1;
+	if(slot < 0)
+		return false;
+	const float deadZone = 0.25f;
+	const float amount = fabsf(stick.y);
+	if(last != 0 && amount > deadZone && amount >= fabsf(stick.x)){
+		const float seconds = Min((float)((now-last)/1000.0), 0.1f);
+		const float speed = (amount-deadZone)/(1.0f-deadZone);
+		const float factor = powf(2.0f, copysignf(speed*seconds, stick.y));
+		gTrackedScopeZoom[slot] =
+			clamp(gTrackedScopeZoom[slot]*factor, 1.0f,
+				GetTrackedScopeMaxZoomInternal(slot));
+		gTrackedScopeZoomShownAt = GetTickCount64();
+	}
+	return true;
+}
+
+bool GetTrackedScopeZoomLabel(float *zoom)
+{
+	// The magnification is shown for 1.5 seconds after the optic comes up
+	// and after every change.
+	if(!zoom || GetTrackedScopeZoomSlotInternal(gTrackedScopeWeaponType) < 0 ||
+	   !IsTrackedScopeActive() ||
+	   GetTickCount64()-gTrackedScopeZoomShownAt >= 1500ULL)
+		return false;
+	*zoom = GetTrackedScopeZoomInternal();
+	return true;
+}
+
 void ApplySnapTurn(float stickX)
 {
 	if(gTurnMode != VR_TURN_SNAP || FindPlayerVehicle() ||
@@ -16550,7 +16945,11 @@ bool ApplyTouchInput(CControllerState *state)
 		MergeAxis(state->LeftStickX, AxisValue(moveX));
 		MergeAxis(state->LeftStickY, AxisValue(-moveY));
 	}
-	ApplySnapTurn(sticks[1].x);
+	const bool scopeZoom = UpdateTrackedScopeZoom(sticks[1]);
+	if(scopeZoom)
+		gSnapTurnStickLatched = fabsf(sticks[1].x) >= 0.35f;
+	else
+		ApplySnapTurn(sticks[1].x);
 	if(!weaponLeftShortcut && !weaponRightShortcut){
 		const float physicalTurnScale =
 			(float)gTurnSensitivityPercent/100.0f;
@@ -16560,7 +16959,7 @@ bool ApplyTouchInput(CControllerState *state)
 			// RC aircraft use the right stick for yaw.  Locomotion turn mode
 			// and sensitivity must never consume or rescale that mission input.
 			MergeAxis(state->RightStickX, AxisValue(sticks[1].x));
-		}else if(gTurnMode != VR_TURN_SNAP){
+		}else if(gTurnMode != VR_TURN_SNAP && !scopeZoom){
 			MergeAxis(state->RightStickX, AxisValue(clamp(
 				sticks[1].x*physicalTurnScale, -1.0f, 1.0f)));
 		}
@@ -16568,7 +16967,8 @@ bool ApplyTouchInput(CControllerState *state)
 		// selected SNAP/SMOOTH mode continues to control the physical right stick.
 		MergeAxis(state->RightStickX, AxisValue(clamp(
 			headSteeringAxis*headTurnScale, -1.0f, 1.0f)));
-		MergeAxis(state->RightStickY, AxisValue(-sticks[1].y));
+		if(!scopeZoom)
+			MergeAxis(state->RightStickY, AxisValue(-sticks[1].y));
 	}
 	MergeButton(state->LeftShoulder2, weaponLeftShortcut);
 	MergeButton(state->RightShoulder2, weaponRightShortcut);
@@ -17613,6 +18013,19 @@ bool IsHudPanelOnWrist(int panel)
 }
 bool IsClassicHudWeaponPanelVisible() { return !ShouldRouteGameplayHudToVr() || gWristHud.classicWeapon; }
 bool IsClassicHudClockVisible() { return !ShouldRouteGameplayHudToVr() || gWristHud.classicClock; }
+int GetWristAmmoSlot(int panel)
+{
+	const bool perHand = gWristHud.ammoPerHand &&
+		gWristHud.enabled[WristHudSettings::AMMO] && FindPlayerVehicle() == nil;
+	if(panel == WristHudSettings::AMMO && !perHand)
+		return -1;
+	if(!perHand || (panel != WristHudSettings::AMMO && panel != WRIST_AMMO_OTHER))
+		return -2;
+	const int hand = gWristHud.hand[WristHudSettings::AMMO];
+	const int slot = GetWristAmmoSlotInternal(panel == WRIST_AMMO_OTHER ? 1-hand : hand);
+	return slot >= 0 ? slot : -2;
+}
+
 void GetWristAmmoColour(uint8 *red, uint8 *green, uint8 *blue)
 {
 	if(red) *red = (uint8)gWristHud.ammoColour[0];
@@ -17954,6 +18367,27 @@ int GetHeldWeaponSlot(int hand)
 	return hand >= 0 && hand < EYE_COUNT ? gHeldWeaponSlot[hand] : -1;
 }
 
+// The weapon slot whose ammo this hand's wrist shows when each hand shows its
+// own, or -1. A gun counts for the hand that pulls its trigger, which is the
+// front hand on the rocket launcher, and never for a support grip alone.
+int GetWristAmmoSlotInternal(int hand)
+{
+	CPlayerPed *player = FindPlayerPed();
+	if(!player || hand < 0 || hand >= EYE_COUNT)
+		return -1;
+	const int own = gHeldWeaponSlot[hand];
+	if(own >= 0 && !IsWeaponForegripCarryInternal(hand) &&
+	   GetTrackedWeaponFireTriggerHand(hand,
+	   player->GetWeapon(own).m_eWeaponType) != 1-hand)
+		return own;
+	const int other = gHeldWeaponSlot[1-hand];
+	if(other >= 0 && !IsWeaponForegripCarryInternal(1-hand) &&
+	   GetTrackedWeaponFireTriggerHand(1-hand,
+	   player->GetWeapon(other).m_eWeaponType) == hand)
+		return other;
+	return -1;
+}
+
 void ReleaseTrackedWeaponAfterUse(int hand, int slot)
 {
 	if(hand < 0 || hand >= EYE_COUNT || slot < 0 ||
@@ -18172,7 +18606,10 @@ void UpdateTrackedScopeReticleTarget()
 	if((!physicalScopeNeedsTarget && !HasTrackedHeadAimWeaponInternal()) ||
 	   !gFramePrepared || !IsTrackedScopeGameplaySafe())
 		return;
-	const XrVector3f eyeCentre = {
+	// A one-eyed optic centres its reticle on that eye's view axis.
+	const XrVector3f eyeCentre = physicalScopeNeedsTarget &&
+		gTrackedScopeEye >= 0 ?
+		gLocatedViews[gTrackedScopeEye].pose.position : XrVector3f{
 		(gLocatedViews[0].pose.position.x+gLocatedViews[1].pose.position.x)*0.5f,
 		(gLocatedViews[0].pose.position.y+gLocatedViews[1].pose.position.y)*0.5f,
 		(gLocatedViews[0].pose.position.z+gLocatedViews[1].pose.position.z)*0.5f
@@ -18519,6 +18956,27 @@ bool GetTrackedScopeMetrics(int hand, int weaponType, bool relaxed,
 	return true;
 }
 
+// Picks the eye that looks through the optic: the one closer to the weapon's
+// sight line, or the eye on the side of the weapon hand if there is no line.
+int FindTrackedScopeEyeInternal(int hand, int weaponType)
+{
+	if(weaponType == WEAPONTYPE_CAMERA)
+		return -1;
+	CVector sightPosition, sightDirection;
+	if(!gFramePrepared ||
+	   !BuildTrackedWeaponAimInternal(hand, weaponType, &sightPosition,
+	   &sightDirection, false) || sightDirection.MagnitudeSqr() < 0.0001f)
+		return hand == 0 ? 0 : 1;
+	sightDirection.Normalise();
+	float distance[EYE_COUNT];
+	for(int eye = 0; eye < EYE_COUNT; eye++){
+		const CVector toEye = gBaseCamera.GetPosition()+
+			ToGameVector(gLocatedViews[eye].pose.position)-sightPosition;
+		distance[eye] = CrossProduct(toEye, sightDirection).Magnitude();
+	}
+	return distance[0] < distance[1] ? 0 : 1;
+}
+
 void SetTrackedScopeStateInternal(int hand, int weaponType)
 {
 	if(gTrackedScopeHand == hand && gTrackedScopeWeaponType == weaponType)
@@ -18534,10 +18992,13 @@ void SetTrackedScopeStateInternal(int hand, int weaponType)
 	for(int aimHand = 0; aimHand < EYE_COUNT; aimHand++)
 		gTrackedAimCacheValid[aimHand] = false;
 	ResetTemporalAaHistory();
-	if(hand >= 0)
-		debug("[OpenXR] Physical optic active: hand=%d weapon=%d\n",
-			hand, weaponType);
-	else if(wasActive)
+	gTrackedScopeEye = hand >= 0 ?
+		FindTrackedScopeEyeInternal(hand, weaponType) : -1;
+	if(hand >= 0){
+		gTrackedScopeZoomShownAt = GetTickCount64();
+		debug("[OpenXR] Physical optic active: hand=%d weapon=%d eye=%d\n",
+			hand, weaponType, gTrackedScopeEye);
+	}else if(wasActive)
 		debug("[OpenXR] Physical optic released\n");
 }
 
@@ -19286,6 +19747,7 @@ bool SubmitStereoFrame(RwCamera *camera)
 	const bool prepareDlaaAfterSubmit =
 		dlaaWarmupFrame && gDlaaStereoWarmupFrames == 0 &&
 		!gDlaaStereoActivationFailed;
+	DrawDesktopMirror();
 	if(!FinishD3D12SwapchainWrites()){
 		EndXrFrame(nil,0);
 		return false;
@@ -19325,6 +19787,18 @@ bool SubmitStereoFrame(RwCamera *camera)
 		const bool trackedScope = IsTrackedScopeActive();
 		hud.pose.position.x=trackedScope?0.0f:gHudOffsetXCm*0.01f;
 		hud.pose.position.y=trackedScope?0.0f:gHudOffsetYCm*0.01f;
+		if(trackedScope && gTrackedScopeEye >= 0){
+			// The mask and reticle sit 1.6 m away. Seen with both eyes they
+			// double while the eyes focus on a distant target, so only the
+			// eye behind the optic gets them, centred on its view axis.
+			const XrVector3f &a=gLocatedViews[0].pose.position;
+			const XrVector3f &b=gLocatedViews[1].pose.position;
+			const float halfIpd=0.5f*sqrtf((b.x-a.x)*(b.x-a.x)+
+				(b.y-a.y)*(b.y-a.y)+(b.z-a.z)*(b.z-a.z));
+			hud.eyeVisibility=gTrackedScopeEye==0?
+				XR_EYE_VISIBILITY_LEFT:XR_EYE_VISIBILITY_RIGHT;
+			hud.pose.position.x=gTrackedScopeEye==0?-halfIpd:halfIpd;
+		}
 		hud.pose.position.z=-1.6f;
 		if(trackedScope){
 			// Cover the complete Quest view while an opaque optic mask is active.
@@ -19337,6 +19811,23 @@ bool SubmitStereoFrame(RwCamera *camera)
 			hud.size.height=1.8f*hudScale*
 				(float)VR_HUD_HEIGHT/VR_HUD_WIDTH;
 		}
+	}
+	XrCompositionLayerQuad otherEye={XR_TYPE_COMPOSITION_LAYER_QUAD};
+	const bool darkOtherEye=showHud && gScopeOtherEyeDark &&
+		IsTrackedScopeActive() && gTrackedScopeEye >= 0;
+	if(darkOtherEye){
+		// An opaque layer in front of the other eye, sampled from the black
+		// strip RenderVrGameplayHud keeps at the left edge of the HUD image.
+		otherEye.space=gViewSpace;
+		otherEye.eyeVisibility=gTrackedScopeEye==0?
+			XR_EYE_VISIBILITY_RIGHT:XR_EYE_VISIBILITY_LEFT;
+		otherEye.subImage.swapchain=gHudSwapchain.handle;
+		otherEye.subImage.imageRect.offset={4,VR_HUD_HEIGHT/2};
+		otherEye.subImage.imageRect.extent={8,8};
+		otherEye.pose.orientation.w=1.0f;
+		otherEye.pose.position.z=-0.5f;
+		otherEye.size.width=8.0f;
+		otherEye.size.height=8.0f;
 	}
 	XrCompositionLayerQuad debugLayer={XR_TYPE_COMPOSITION_LAYER_QUAD};
 	if(showDebug){
@@ -19364,11 +19855,12 @@ bool SubmitStereoFrame(RwCamera *camera)
 		vrMenuLayer.size.height=vrMenuLayer.size.width*
 			(float)VR_MENU_HEIGHT/VR_MENU_WIDTH;
 	}
-	const XrCompositionLayerBaseHeader *layers[4+WristHudSettings::PANEL_COUNT]; uint32_t count=0;
+	const XrCompositionLayerBaseHeader *layers[5+WRIST_LAYER_COUNT]; uint32_t count=0;
 	layers[count++]=(const XrCompositionLayerBaseHeader*)&projection;
 	if(showHud) layers[count++]=(const XrCompositionLayerBaseHeader*)&hud;
+	if(darkOtherEye) layers[count++]=(const XrCompositionLayerBaseHeader*)&otherEye;
 	if(showHud)
-		for(int panel = 0; panel < WristHudSettings::PANEL_COUNT; panel++)
+		for(int panel = 0; panel < WRIST_LAYER_COUNT; panel++)
 			if(gWristHudLayerMask & (1u << panel))
 				layers[count++]=(const XrCompositionLayerBaseHeader*)&gWristHudLayers[panel];
 	if(showDebug) layers[count++]=(const XrCompositionLayerBaseHeader*)&debugLayer;
@@ -20045,6 +20537,7 @@ void Shutdown()
 	DestroyRuntime();
 #ifdef RW_D3D12
 	DestroyTrackedForegroundResolvePipeline();
+	DestroyDesktopMirrorPipeline();
 	ReleaseDesktopAaStaging();
 #endif
 	Fsr2::Shutdown();

@@ -79,6 +79,10 @@ def main():
     tracking += "\nstatic bool GetTrackedVisualHandMatrix(int hand, CMatrix *handMatrix, float *, float *)\n{\n"
     tracking += "\t++handCalls;\n\t" + guard.group() + "\n\t*handMatrix = handMatrices[hand];\n\treturn true;\n}\n"
     (output / "wrist-hud-tracking-extracted.inc").write_text(tracking, encoding="utf-8")
+    ammo = "\n\n".join(function(source, name) for name in (
+        "IsWeaponForegripCarryInternal", "GetTrackedWeaponFireTriggerHand",
+        "GetWristAmmoSlotInternal", "GetWristAmmoSlot"))
+    (output / "wrist-hud-ammo-extracted.inc").write_text(ammo, encoding="utf-8")
     production = '#include "' + (source_dir / "OpenXRWristHud.h").as_posix() + '"\n'
     production += function(source, "RestoreCamera") + "\n" + function(source, "UpdateHudSwapchain")
     production += "\nstatic bool SubmitHudForTest(RwCamera *camera)\n{\n" + ordering + "\n\treturn showHud;\n}\n"

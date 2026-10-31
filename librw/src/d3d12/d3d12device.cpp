@@ -1329,6 +1329,16 @@ copyExternalToCurrentBackBuffer(ID3D12Resource *source, uint32 sourceState)
 }
 
 bool32
+getCurrentBackBuffer(ID3D12Resource **resource)
+{
+	if(resource == nil || !context.frameOpen || context.commandList == nil ||
+	   context.backBuffers[context.frameIndex] == nil)
+		return 0;
+	*resource = context.backBuffers[context.frameIndex];
+	return 1;
+}
+
+bool32
 uploadRgbaToExternal(ID3D12Resource *destination, const uint8 *pixels,
 	                 uint32 stride, int32 width, int32 height)
 {

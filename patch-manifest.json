@@ -10,7 +10,7 @@
     "patches":  [
                     {
                         "path":  "vice-city-vr.patch",
-                        "sha256":  "7033fb5562b5afd6e77979f86d7b4ae1de234239906a6acff70d6d6f27ed5536",
+                        "sha256":  "cf3cab941c3bd9d7bdd5f4c99790d2849a86749db2b558c87fdcb80c5bbe9050",
                         "targets":  [
                                         {
                                             "path":  "CMakeLists.txt",
@@ -220,7 +220,7 @@
                                         {
                                             "path":  "src/core/main.cpp",
                                             "preimageSha256":  "1dbcc1495c3b2c6671565c264109568a6910d402dcbd741a42cff62faceb458c",
-                                            "postimageSha256":  "1ae005e460be36b4a8fecfe9e773053537a5510caa737c60e248ae85ece3842b"
+                                            "postimageSha256":  "ed89e1db5ab25eaa309ecc3c4e733838b2ccbb3df77d45d691dc7dc3b1d5918b"
                                         },
                                         {
                                             "path":  "src/core/main.h",
@@ -410,7 +410,7 @@
                                         {
                                             "path":  "src/render/Hud.cpp",
                                             "preimageSha256":  "0face03aec3ceccc7e45606a37a1ba728c83a737a57002896ef405a5b14371d1",
-                                            "postimageSha256":  "d0da4dea4f0064713bf77564ddafe4a1e60ebe6b22041a7ba36ff12045c98aa0"
+                                            "postimageSha256":  "63093b463648b17331cab7d46b7cd433643ab9133935760d12ddb1ab139db829"
                                         },
                                         {
                                             "path":  "src/render/Hud.h",
@@ -769,15 +769,15 @@
                     },
                     {
                         "path":  "src/vr/OculusVR.h",
-                        "sha256":  "b92e562be7fb08e81ad98e1248ad641a7b2c81acb628faa16fa9afd8eca56b61"
+                        "sha256":  "3f08b8b19ec4c701f0ebf8ad6a6995b6f3062fd000877d22235157146f4f33b2"
                     },
                     {
                         "path":  "src/vr/OpenXRVR.cpp",
-                        "sha256":  "e5e7cf324896ced2cadcaa38833e1768f989a8f18a38ea7e04e20e00f58edd57"
+                        "sha256":  "caeb407f2f0e31cf444706527890095d2bf6ee7eb66521f7f23498dfe93ab6a6"
                     },
                     {
                         "path":  "src/vr/OpenXRWristHud.h",
-                        "sha256":  "5ffe57e1559c2c2e5f0d3169f9a9a263c7c6c62d177b2ce093f1134d993efb72"
+                        "sha256":  "09da511141462d85f231dad999a2b47d296db9651c40f6956935dc5b1c9741e6"
                     },
                     {
                         "path":  "src/vr/VrCameraHeadScope.h",
@@ -813,7 +813,7 @@
                     },
                     {
                         "path":  "src/vr/WristHudSettings.h",
-                        "sha256":  "9bafa17f55f18bdfafae693ae09ae15053800bda93c9e00f43463ace01675eb0"
+                        "sha256":  "a785cebdb283a8e2f42afa33068f4b34028ca24471c39788e970c7338bd900e3"
                     },
                     {
                         "path":  "tools/dlss/COPYING-GPL-3.0.txt",
@@ -905,7 +905,7 @@
                     },
                     {
                         "path":  "tools/vr/tests/run-wrist-hud-lifecycle.py",
-                        "sha256":  "f45ac49596808fdbf2c605927fcaf46de34a67b659370b0b68196dcfb24e46b8"
+                        "sha256":  "ec924f9a6d08f2435f2c7b0c60b2151dc1928505dc9f710a0733ace84db2a39a"
                     },
                     {
                         "path":  "tools/vr/tests/vehicle-view-settings-test.cpp",
@@ -913,7 +913,7 @@
                     },
                     {
                         "path":  "tools/vr/tests/wrist-hud-lifecycle-test.cpp",
-                        "sha256":  "f91b572f990be57be8e5cbed4dc99537a65701d03631f9fa71884aee778e3c42"
+                        "sha256":  "45ffb3befafe302ac50d6747d952086f6bb634e7d1c03f2cb90b2318371e9f27"
                     },
                     {
                         "path":  "tools/vr/tests/wrist-hud-test.cpp",
@@ -1355,7 +1355,7 @@
                   },
                   {
                       "path":  "src/d3d12/d3d12device.cpp",
-                      "sha256":  "404842ee4dbb0217bd72c1c751943f0c6d26af418d83983b41041c132e6b4d61"
+                      "sha256":  "40c493d369035bb8efca0dc39cef94dcc1041767ddba9bcd861e50d86ab8bf8a"
                   },
                   {
                       "path":  "src/d3d12/d3d12im.cpp",
@@ -1375,7 +1375,7 @@
                   },
                   {
                       "path":  "src/d3d12/rwd3d12impl.h",
-                      "sha256":  "986c0bc2f070982d2b347b6de711b88a272b96e264b3367bcd9badca07955a96"
+                      "sha256":  "7c2685ea7bf87b2f7d0b1bddb0856e15f866701e683393e874fa83a24a495738"
                   },
                   {
                       "path":  "src/engine.cpp",
