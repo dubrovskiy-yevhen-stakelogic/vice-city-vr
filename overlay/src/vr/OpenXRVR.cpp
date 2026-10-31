@@ -691,6 +691,18 @@ int gAttachedMissionWeaponSlot = -1;
 // slot.  The primary hand remains the sole owner of the weapon/trigger while
 // this relation only supplies the two-handed pose.
 int gWeaponSupportHand[EYE_COUNT] = { -1, -1 };
+// Releasing the primary grip while the support hand still holds the foregrip
+// hands the weapon to the support hand without moving it: the final model
+// matrix and aim ray are kept relative to that controller. Indexed by the
+// carrying hand, which owns the slot, so the other hand is entirely free.
+// Squeezing at the weapon's grip again restores the two-handed hold.
+bool gWeaponForegripCarry[EYE_COUNT];
+int gWeaponForegripCarrySlot[EYE_COUNT] = { -1, -1 };
+CMatrix gWeaponForegripCarryModel[EYE_COUNT];
+CVector gWeaponForegripCarryAimSource[EYE_COUNT];
+CVector gWeaponForegripCarryAimDirection[EYE_COUNT];
+CVector gWeaponForegripCarryGrip[EYE_COUNT];
+bool gWeaponForegripRegripArmed[EYE_COUNT];
 CMatrix gTrackedWeaponRenderMatrix[EYE_COUNT];
 int gTrackedWeaponRenderMatrixSlot[EYE_COUNT] = { -1, -1 };
 CMatrix gTrackedWeaponContactMatrix[EYE_COUNT];
@@ -14869,11 +14881,17 @@ bool BuildDroppedWeaponMatrix(int hand, ULONGLONG now, CMatrix *matrix)
 	return true;
 }
 
+void ClearWeaponForegripCarry(int hand);
+
 void GiveWeaponToHand(int hand, int slot, const char *reason)
 {
 	if(hand < 0 || hand >= EYE_COUNT || slot < 0)
 		return;
 	ClearWeaponSupportForHand(hand);
+	// Every new assignment starts as an ordinary grip hold; HandWeaponToForegrip
+	// sets the carry again after this call. A stale carry would, for example,
+	// keep the trigger of a mounted mission gun from firing.
+	ClearWeaponForegripCarry(hand);
 	gHeldWeaponSlot[hand] = slot;
 	gWeaponHolsterSelection[hand] = slot;
 	gTrackedWeaponRenderMatrixSlot[hand] = -1;
@@ -14992,6 +15010,84 @@ bool UpdateAttachedMissionWeaponInput(const float *grips)
 	return true;
 }
 
+// Raw controller frame in game space. A foregrip carry stores the weapon
+// relative to it, so the weapon follows the carrying hand rigidly.
+bool BuildForegripCarryController(int hand, CMatrix *controller)
+{
+	if(!controller || hand < 0 || hand >= EYE_COUNT ||
+	   !gTrackedHandPoseValid[hand])
+		return false;
+	const XrPosef &pose = gTrackedHandPose[hand];
+	const XrVector3f localRight = { 1.0f, 0.0f, 0.0f };
+	const XrVector3f localUp = { 0.0f, 1.0f, 0.0f };
+	const XrVector3f localForward = { 0.0f, 0.0f, -1.0f };
+	controller->SetUnity();
+	controller->GetRight() = ToGameVector(Rotate(pose.orientation, localRight));
+	controller->GetUp() = ToGameVector(Rotate(pose.orientation, localUp));
+	controller->GetForward() = ToGameVector(Rotate(pose.orientation, localForward));
+	controller->GetRight().Normalise();
+	controller->GetUp().Normalise();
+	controller->GetForward().Normalise();
+	controller->GetPosition() = gBaseCamera.GetPosition()+
+		ToGameVector(pose.position);
+	return true;
+}
+
+bool IsWeaponForegripCarryInternal(int hand)
+{
+	return hand >= 0 && hand < EYE_COUNT && gWeaponForegripCarry[hand] &&
+		gHeldWeaponSlot[hand] >= 0 &&
+		gHeldWeaponSlot[hand] == gWeaponForegripCarrySlot[hand];
+}
+
+void ClearWeaponForegripCarry(int hand)
+{
+	gWeaponForegripCarry[hand] = false;
+	gWeaponForegripCarrySlot[hand] = -1;
+}
+
+// Moves a two-handed weapon from the primary to the support hand where it
+// stands. Without last frame's model matrix it falls back to an ordinary
+// hand-over at the weapon grip.
+void HandWeaponToForegrip(int primary, int support, int slot, int weaponType)
+{
+	CMatrix controller;
+	CVector source, direction;
+	const bool keepPose =
+		gTrackedWeaponContactMatrixSlot[primary] == slot &&
+		gTrackedWeaponContactMatrixType[primary] == weaponType &&
+		BuildForegripCarryController(support, &controller) &&
+		BuildTrackedWeaponAimInternal(primary, weaponType, &source,
+			&direction, false);
+	const bool placementValid = gTrackedWeaponRenderMatrixSlot[primary] == slot;
+	const CMatrix placement = gTrackedWeaponRenderMatrix[primary];
+	if(keepPose){
+		const CMatrix inverse = Invert(controller);
+		gWeaponForegripCarryModel[support] =
+			inverse*gTrackedWeaponContactMatrix[primary];
+		gWeaponForegripCarryAimSource[support] = inverse*source;
+		gWeaponForegripCarryAimDirection[support] =
+			Multiply3x3(inverse, direction);
+		gWeaponForegripCarryGrip[support] = inverse*(gBaseCamera.GetPosition()+
+			ToGameVector(gTrackedHandPose[primary].position));
+	}
+	gHeldWeaponSlot[primary] = -1;
+	gWeaponHolsterSelection[primary] = -1;
+	gTrackedWeaponRenderMatrixSlot[primary] = -1;
+	gWeaponSupportHand[primary] = -1;
+	GiveWeaponToHand(support, slot, keepPose ?
+		"held at the foregrip by" : "promoted from support to");
+	if(!keepPose)
+		return;
+	if(placementValid){
+		gTrackedWeaponRenderMatrix[support] = placement;
+		gTrackedWeaponRenderMatrixSlot[support] = slot;
+	}
+	gWeaponForegripCarry[support] = true;
+	gWeaponForegripCarrySlot[support] = slot;
+	gWeaponForegripRegripArmed[support] = true;
+}
+
 void UpdateWeaponHolsterInput(float leftGrip, float rightGrip, uint32 blockedHands)
 {
 	const ULONGLONG now = GetTickCount64();
@@ -15016,10 +15112,46 @@ void UpdateWeaponHolsterInput(float leftGrip, float rightGrip, uint32 blockedHan
 	}
 
 	uint32 handledHands = blockedHands;
+	// A weapon carried at its foregrip returns to the two-handed hold when the
+	// free hand squeezes again at its grip; the carrying hand becomes the support.
+	for(int carrier = 0; carrier < EYE_COUNT; carrier++){
+		if(!IsWeaponForegripCarryInternal(carrier)){
+			ClearWeaponForegripCarry(carrier);
+			continue;
+		}
+		const int other = 1-carrier;
+		if(grips[other] <= 0.30f){
+			gWeaponForegripRegripArmed[carrier] = true;
+			continue;
+		}
+		if(grips[other] < 0.65f || !gWeaponForegripRegripArmed[carrier])
+			continue;
+		gWeaponForegripRegripArmed[carrier] = false;
+		CMatrix controller;
+		if((handledHands & (1u << other)) != 0 || gHeldWeaponSlot[other] >= 0 ||
+		   IsWeaponSupportHandInternal(other) || grips[carrier] <= 0.30f ||
+		   !gTrackedHandPoseValid[other] ||
+		   !BuildForegripCarryController(carrier, &controller))
+			continue;
+		const CVector weaponGrip = controller*gWeaponForegripCarryGrip[carrier];
+		const CVector handPosition = gBaseCamera.GetPosition()+
+			ToGameVector(gTrackedHandPose[other].position);
+		if((handPosition-weaponGrip).Magnitude() > 0.15f)
+			continue;
+		const int slot = gHeldWeaponSlot[carrier];
+		ClearWeaponForegripCarry(carrier);
+		gHeldWeaponSlot[carrier] = -1;
+		gWeaponHolsterSelection[carrier] = -1;
+		gTrackedWeaponRenderMatrixSlot[carrier] = -1;
+		GiveWeaponToHand(other, slot, "taken back at the grip by");
+		gWeaponSupportHand[other] = carrier;
+		handledHands |= (1u << other) | (1u << carrier);
+	}
+
 	// Maintain an existing support grip before considering a fresh transfer.
 	// Releasing the support hand only detaches it. Releasing the primary while
-	// the support hand remains squeezed promotes that hand to primary, which
-	// makes natural hand-to-hand passes possible without dropping the weapon.
+	// the support hand remains squeezed hands the weapon to the support hand
+	// where it stands, so it stays at the foregrip and the other hand is free.
 	for(int primary = 0; primary < EYE_COUNT; primary++){
 		const int support = gWeaponSupportHand[primary];
 		if(support < 0)
@@ -15040,11 +15172,7 @@ void UpdateWeaponHolsterInput(float leftGrip, float rightGrip, uint32 blockedHan
 		}
 		handledHands |= 1u << support;
 		if(grips[primary] <= 0.30f && !gWeaponGripLockEnabled){
-			gHeldWeaponSlot[primary] = -1;
-			gWeaponHolsterSelection[primary] = -1;
-			gTrackedWeaponRenderMatrixSlot[primary] = -1;
-			gWeaponSupportHand[primary] = -1;
-			GiveWeaponToHand(support, slot, "promoted from support to");
+			HandWeaponToForegrip(primary, support, slot, weaponType);
 			handledHands |= 1u << primary;
 		}
 	}
@@ -15057,6 +15185,7 @@ void UpdateWeaponHolsterInput(float leftGrip, float rightGrip, uint32 blockedHan
 		const int slot = gHeldWeaponSlot[primary];
 		const int weaponType = slot >= 0 ? GetVrWeaponTypeForSlot(slot) : -1;
 		if(slot < 0 || gWeaponSupportHand[primary] >= 0 ||
+		   IsWeaponForegripCarryInternal(primary) ||
 		   gHeldWeaponSlot[support] >= 0 ||
 		   (handledHands & (1u << support)) != 0 ||
 		   !IsTwoHandedWeaponTypeInternal(weaponType) ||
@@ -15078,13 +15207,9 @@ void UpdateWeaponHolsterInput(float leftGrip, float rightGrip, uint32 blockedHan
 			primary == 0 ? "left" : "right", slot);
 		if(grips[primary] <= 0.30f && !gWeaponGripLockEnabled){
 			// Both edges can arrive in the same OpenXR sample (release primary,
-			// squeeze support). Promote immediately so the generic drop pass below
-			// cannot destroy the newly established hand-off.
-			gHeldWeaponSlot[primary] = -1;
-			gWeaponHolsterSelection[primary] = -1;
-			gTrackedWeaponRenderMatrixSlot[primary] = -1;
-			gWeaponSupportHand[primary] = -1;
-			GiveWeaponToHand(support, slot, "promoted from fresh support to");
+			// squeeze support). Hand over immediately so the generic drop pass
+			// below cannot destroy the newly established hand-off.
+			HandWeaponToForegrip(primary, support, slot, weaponType);
 			handledHands |= 1u << primary;
 		}
 	}
@@ -17516,6 +17641,7 @@ bool IsTrackedWeaponTriggerPressed(int hand)
 {
 	return hand >= 0 && hand < EYE_COUNT && gVrHandsEnabled &&
 		gHeldWeaponSlot[hand] >= 0 && gSessionRunning &&
+		!IsWeaponForegripCarryInternal(hand) &&
 		gTrackedWeaponTriggerPressed[hand] &&
 		gTrackedHandAimPoseValid[hand] &&
 		(FindPlayerVehicle() == nil ||
@@ -17540,6 +17666,9 @@ bool IsTrackedWeaponTriggerJustReleased(int hand)
 static int GetTrackedWeaponFireTriggerHand(int weaponHand, int weaponType)
 {
 	if(weaponHand < 0 || weaponHand >= EYE_COUNT)
+		return -1;
+	// Carried at the foregrip, no hand is on the trigger.
+	if(IsWeaponForegripCarryInternal(weaponHand))
 		return -1;
 	if(weaponType != WEAPONTYPE_ROCKETLAUNCHER || FindPlayerVehicle() != nil)
 		return weaponHand;
@@ -18103,6 +18232,16 @@ bool BuildTrackedWeaponAimInternal(int hand, int weaponType, CVector *source,
 	   (FindPlayerVehicle() != nil &&
 	    !IsVrDrivingActiveInternal()))
 		return false;
+	if(IsWeaponForegripCarryInternal(hand)){
+		CMatrix controller;
+		if(!BuildForegripCarryController(hand, &controller))
+			return false;
+		*source = controller*gWeaponForegripCarryAimSource[hand];
+		*direction = Multiply3x3(controller,
+			gWeaponForegripCarryAimDirection[hand]);
+		direction->Normalise();
+		return true;
+	}
 	const WeaponCalibration *calibration = GetWeaponCalibration(hand, weaponType);
 	if(!calibration)
 		return false;
@@ -18888,6 +19027,16 @@ bool GetImmersiveCarWheelGripMarker(int socket, CMatrix *matrix, bool *grabbed)
 				*grabbed = true;
 		}
 	}
+	return true;
+}
+
+bool GetTrackedWeaponCarryMatrix(int hand, CMatrix *matrix)
+{
+	CMatrix controller;
+	if(!matrix || !IsWeaponForegripCarryInternal(hand) ||
+	   !BuildForegripCarryController(hand, &controller))
+		return false;
+	*matrix = controller*gWeaponForegripCarryModel[hand];
 	return true;
 }
 
