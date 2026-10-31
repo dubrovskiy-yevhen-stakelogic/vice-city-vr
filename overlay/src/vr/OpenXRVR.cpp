@@ -2189,6 +2189,9 @@ bool gRuntimeNeedsCinemaKeepAlive;
 // Theater mode renders cinema as a world-anchored stereo projection, avoiding
 // SteamVR's 15 Hz quad-only throttle.
 bool gCinemaTheaterMode;
+// Wine/Proton only: submit a hidden quad first so wineopenxr converts the
+// following quad layers correctly (see EndXrFrame).
+bool gWineLayerGuard;
 // True once the classic quad path has actually released a cinema swapchain
 // image this session. Theater-mode sessions never do, and a held quad frame
 // must not reference a swapchain with no released image.
@@ -8256,6 +8259,15 @@ bool InitializeRuntime()
 		else if(cinemaProjectionRuntime)
 			VrLog("Cinema theater projection disabled by CinemaProjection=0; "
 				"the runtime quad path will be used\n");
+		const bool wine = GetProcAddress(GetModuleHandleA("ntdll.dll"),
+			"wine_get_version") != nil;
+		gWineLayerGuard = wine &&
+			GetPrivateProfileIntA("VR", "WineLayerGuard", 1,
+				GetVrSettingsPath()) != 0;
+		if(gWineLayerGuard)
+			VrLog("Wine detected: wineopenxr layer guard enabled "
+				"(disable with [VR] WineLayerGuard=0 in %s)\n",
+				GetVrSettingsPath());
 	}
 	XrSystemGetInfo systemInfo = { XR_TYPE_SYSTEM_GET_INFO };
 	systemInfo.formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
@@ -8712,6 +8724,28 @@ bool EndXrFrame(const XrCompositionLayerBaseHeader *const *layers, uint32_t coun
 {
 	if(!gFrameBegun)
 		return false;
+	// Proton's wineopenxr sizes every converted layer after layers[0]. With a
+	// projection first, each following quad overflows into the next one and
+	// SteamVR rejects the frame with XR_ERROR_POSE_INVALID. A tiny quad first,
+	// hidden under the opaque projection, makes every converted slot quad-sized.
+	const XrCompositionLayerBaseHeader *guarded[16];
+	XrCompositionLayerQuad guardQuad;
+	if(gWineLayerGuard && count >= 3 && count < 16 && layers[0] &&
+	   layers[0]->type == XR_TYPE_COMPOSITION_LAYER_PROJECTION){
+		const XrCompositionLayerQuad *firstQuad = nil;
+		for(uint32_t i = 1; i < count && !firstQuad; i++)
+			if(layers[i] && layers[i]->type == XR_TYPE_COMPOSITION_LAYER_QUAD)
+				firstQuad = (const XrCompositionLayerQuad*)layers[i];
+		if(firstQuad){
+			guardQuad = *firstQuad;
+			guardQuad.next = nil;
+			guardQuad.size.width = guardQuad.size.height = 0.001f;
+			guarded[0] = (const XrCompositionLayerBaseHeader*)&guardQuad;
+			for(uint32_t i = 0; i < count; i++) guarded[i+1] = layers[i];
+			layers = guarded;
+			count++;
+		}
+	}
 	XrFrameEndInfo end = { XR_TYPE_FRAME_END_INFO };
 	end.displayTime = gFrameState.predictedDisplayTime;
 	end.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
