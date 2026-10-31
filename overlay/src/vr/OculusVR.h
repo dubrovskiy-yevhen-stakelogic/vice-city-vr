@@ -141,6 +141,9 @@ bool IsHudPanelOnWrist(int panel);
 bool IsClassicHudWeaponPanelVisible();
 bool IsClassicHudClockVisible();
 void GetWristAmmoColour(uint8 *red, uint8 *green, uint8 *blue);
+// Weapon slot whose ammo wrist panel 3 or 4 shows: -1 for the current weapon,
+// -2 for none.
+int GetWristAmmoSlot(int panel);
 #endif
 bool UseFullStereoSinglePass();
 bool AreTrackedHandsEnabled();

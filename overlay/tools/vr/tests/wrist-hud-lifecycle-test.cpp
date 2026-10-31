@@ -78,7 +78,8 @@ static bool gWristHudFailed, gGameplayHudVisible, gVrHudMenuVisible, gFramePrepa
 static bool gTrackedHandPoseValid[EYE_COUNT], scopeActive, routeHud, immersiveDriving, failAnchor;
 static CMatrix gBaseCamera, handMatrices[EYE_COUNT], vehicleMatrices[EYE_COUNT];
 static XrView gLocatedViews[EYE_COUNT];
-static XrCompositionLayerQuad gWristHudLayers[WristHudSettings::PANEL_COUNT];
+enum { WRIST_AMMO_OTHER = WristHudSettings::PANEL_COUNT, WRIST_LAYER_COUNT };
+static XrCompositionLayerQuad gWristHudLayers[WRIST_LAYER_COUNT];
 static uintptr_t gGameplaySpace = 17;
 static Swapchain gWristHudSwapchain, gHudSwapchain;
 static unsigned int handCalls, vehicleCalls, atlasCreates, copies, hudRenders, atlasRenders;
@@ -209,6 +210,22 @@ static void RenderVrWristHudContents(unsigned int mask)
 	++atlasRenders;
 }
 
+// Game-state adapters only: slot selection, trigger ownership and foregrip
+// carry detection are extracted from production rather than copied here.
+enum { WEAPONTYPE_COLT45 = 17, WEAPONTYPE_M4 = 26, WEAPONTYPE_ROCKETLAUNCHER = 30 };
+struct CWeapon { int m_eWeaponType = WEAPONTYPE_COLT45; };
+struct CPlayerPed {
+	CWeapon weapons[8];
+	CWeapon &GetWeapon(int slot) { assert(slot >= 0 && slot < 8); return weapons[slot]; }
+};
+static CPlayerPed testPlayer;
+static bool playerPresent, detonatorActive[EYE_COUNT];
+static int gHeldWeaponSlot[EYE_COUNT], gWeaponForegripCarrySlot[EYE_COUNT];
+static bool gWeaponForegripCarry[EYE_COUNT];
+static CPlayerPed *FindPlayerPed() { return playerPresent ? &testPlayer : nullptr; }
+static bool IsTrackedDetonatorActiveInternal(int hand) { return detonatorActive[hand]; }
+#include "wrist-hud-ammo-extracted.inc"
+
 #include "wrist-hud-production-extracted.inc"
 
 static RwCamera camera;
@@ -239,6 +256,12 @@ static void Reset()
 	handCalls = vehicleCalls = atlasCreates = copies = hudRenders = atlasRenders = failCopyNumber = 0;
 	invalidRectPanel = -1;
 	playerVehicle = nullptr;
+	testPlayer = CPlayerPed();
+	playerPresent = true;
+	for(int hand = 0; hand < EYE_COUNT; hand++){
+		gHeldWeaponSlot[hand] = gWeaponForegripCarrySlot[hand] = -1;
+		gWeaponForegripCarry[hand] = detonatorActive[hand] = false;
+	}
 	gBaseCamera.SetUnity();
 	gBaseCamera.position = {100,200,10};
 	for(int hand = 0; hand < EYE_COUNT; hand++){
@@ -270,7 +293,8 @@ static void TestNormalSubmit()
 	assert(gWristHud.routingMask == 0xF && gWristHudLayerMask == 0xF);
 	assert(handCalls == 2 && vehicleCalls == 0 && atlasCreates == 1);
 	assert(copies == 2 && hudRenders == 1 && atlasRenders == 1);
-	for(const auto &layer : gWristHudLayers) assert(layer.space == gGameplaySpace && layer.size.width > 0);
+	for(int panel = 0; panel < WristHudSettings::PANEL_COUNT; panel++)
+		assert(gWristHudLayers[panel].space == gGameplaySpace && gWristHudLayers[panel].size.width > 0);
 	assert(Near(gWristHudLayers[0].pose.position,{-0.2f,-0.235f,-0.28f}));
 	CheckRestored();
 	CMatrix unused;
@@ -415,6 +439,116 @@ static void TestPanelProportions()
 		CheckRestored();
 	}
 }
+static void TestAmmoPerHand()
+{
+	// One panel: the classic current-weapon panel, never a second layer.
+	Reset(); gHeldWeaponSlot[0] = 3; gHeldWeaponSlot[1] = 4;
+	assert(SubmitHudForTest(&camera));
+	assert(gWristHud.routingMask == 0xF && gWristHudLayerMask == 0xF);
+	// Each hand: the other wrist gets its own layer, mirrored and on its own
+	// atlas rectangle below the main ammo panel.
+	Reset(); gWristHud.ammoPerHand = true; gHeldWeaponSlot[0] = 3; gHeldWeaponSlot[1] = 4;
+	assert(SubmitHudForTest(&camera));
+	assert(gWristHud.routingMask == 0xF && gWristHudLayerMask == 0x1F);
+	const auto &main = gWristHudLayers[WristHudSettings::AMMO];
+	const auto &other = gWristHudLayers[WRIST_AMMO_OTHER];
+	assert(other.space == gGameplaySpace && other.size.width == main.size.width);
+	assert(main.pose.position.x > 0.0f && other.pose.position.x < 0.0f);
+	assert(other.subImage.imageRect.offset.y >= main.subImage.imageRect.offset.y+main.subImage.imageRect.extent.height);
+	CheckRestored();
+	// An empty hand shows no ammo; the main panel still keeps the classic one off.
+	Reset(); gWristHud.ammoPerHand = true; gHeldWeaponSlot[0] = 3;
+	assert(SubmitHudForTest(&camera));
+	assert(gWristHud.routingMask == 0xF && gWristHudLayerMask == 0x17);
+	Reset(); gWristHud.ammoPerHand = true; gHeldWeaponSlot[1] = 4;
+	assert(SubmitHudForTest(&camera));
+	assert(gWristHud.routingMask == 0xF && gWristHudLayerMask == 0xF);
+	// Without the ammo panel or in a vehicle there is no second layer.
+	Reset(); gWristHud.ammoPerHand = true; gWristHud.enabled[WristHudSettings::AMMO] = false;
+	gHeldWeaponSlot[0] = 3; gHeldWeaponSlot[1] = 4;
+	assert(SubmitHudForTest(&camera));
+	assert(gWristHud.routingMask == 0x7 && gWristHudLayerMask == 0x7);
+	Reset(); gWristHud.ammoPerHand = true; playerVehicle = &car;
+	gHeldWeaponSlot[0] = 3; gHeldWeaponSlot[1] = 4;
+	assert(SubmitHudForTest(&camera));
+	assert(gWristHud.routingMask == 0xF && gWristHudLayerMask == 0xF);
+}
+static void TestAmmoWeaponOwnership()
+{
+	for(int hand = 0; hand < EYE_COUNT; hand++){
+		// A rifle uses its grip hand's panel; its support hand owns no slot.
+		Reset(); gWristHud.ammoPerHand = true;
+		gWristHud.hand[WristHudSettings::AMMO] = hand;
+		gHeldWeaponSlot[hand] = 3;
+		testPlayer.weapons[3].m_eWeaponType = WEAPONTYPE_M4;
+		assert(GetWristAmmoSlot(WristHudSettings::AMMO) == 3);
+		assert(GetWristAmmoSlot(WRIST_AMMO_OTHER) == -2);
+		assert(SubmitHudForTest(&camera));
+		assert(gWristHudLayerMask == 0xF);
+		// Releasing the grip leaves that weapon owned by the foregrip carrier,
+		// but neither hand can fire it and neither wrist should show its ammo.
+		PrepareCamera();
+		gWeaponForegripCarry[hand] = true;
+		gWeaponForegripCarrySlot[hand] = 3;
+		assert(GetTrackedWeaponFireTriggerHand(hand, WEAPONTYPE_M4) == -1);
+		assert(GetWristAmmoSlot(WristHudSettings::AMMO) == -2);
+		assert(GetWristAmmoSlot(WRIST_AMMO_OTHER) == -2);
+		assert(SubmitHudForTest(&camera));
+		assert(gWristHud.routingMask == 0xF && gWristHudLayerMask == 0x7);
+		// A separate pistol remains visible on the free hand.
+		PrepareCamera(); gHeldWeaponSlot[1-hand] = 4;
+		assert(GetWristAmmoSlot(WristHudSettings::AMMO) == -2);
+		assert(GetWristAmmoSlot(WRIST_AMMO_OTHER) == 4);
+		assert(SubmitHudForTest(&camera));
+		assert(gWristHudLayerMask == 0x17);
+		// Taking the grip back restores its panel without toggling the setting.
+		PrepareCamera(); gWeaponForegripCarry[hand] = false;
+		assert(GetWristAmmoSlot(WristHudSettings::AMMO) == 3);
+		assert(SubmitHudForTest(&camera));
+		assert(gWristHudLayerMask == 0x1F);
+
+		// The launcher routes ammo to its other, front trigger hand.
+		Reset(); gWristHud.ammoPerHand = true;
+		gWristHud.hand[WristHudSettings::AMMO] = hand;
+		gHeldWeaponSlot[hand] = 3;
+		testPlayer.weapons[3].m_eWeaponType = WEAPONTYPE_ROCKETLAUNCHER;
+		assert(GetWristAmmoSlot(WristHudSettings::AMMO) == -2);
+		assert(GetWristAmmoSlot(WRIST_AMMO_OTHER) == 3);
+		assert(SubmitHudForTest(&camera));
+		assert(gWristHudLayerMask == 0x17);
+		// A foregrip-carried launcher must not leak onto either wrist.
+		PrepareCamera(); gWeaponForegripCarry[hand] = true;
+		gWeaponForegripCarrySlot[hand] = 3;
+		assert(GetWristAmmoSlot(WristHudSettings::AMMO) == -2);
+		assert(GetWristAmmoSlot(WRIST_AMMO_OTHER) == -2);
+		assert(SubmitHudForTest(&camera));
+		assert(gWristHudLayerMask == 0x7);
+		// With a separate gun on the front hand the launcher stays on its
+		// owning wrist, preserving the existing unavailable-trigger fallback.
+		PrepareCamera(); gWeaponForegripCarry[hand] = false;
+		gHeldWeaponSlot[1-hand] = 4;
+		assert(GetWristAmmoSlot(WristHudSettings::AMMO) == 3);
+		assert(GetWristAmmoSlot(WRIST_AMMO_OTHER) == 4);
+		assert(SubmitHudForTest(&camera));
+		assert(gWristHudLayerMask == 0x1F);
+	}
+	Reset(); gWristHud.ammoPerHand = true;
+	assert(GetWristAmmoSlot(WristHudSettings::AMMO) == -2);
+	assert(GetWristAmmoSlot(WRIST_AMMO_OTHER) == -2);
+	assert(SubmitHudForTest(&camera));
+	assert(gWristHudLayerMask == 0x7);
+	// Vehicle and ONE HAND modes still use the current-weapon panel.
+	PrepareCamera(); playerVehicle = &car;
+	assert(GetWristAmmoSlot(WristHudSettings::AMMO) == -1);
+	assert(GetWristAmmoSlot(WRIST_AMMO_OTHER) == -2);
+	assert(SubmitHudForTest(&camera));
+	assert(gWristHudLayerMask == 0xF);
+	PrepareCamera(); playerVehicle = nullptr; gWristHud.ammoPerHand = false;
+	assert(GetWristAmmoSlot(WristHudSettings::AMMO) == -1);
+	assert(GetWristAmmoSlot(WRIST_AMMO_OTHER) == -2);
+	assert(SubmitHudForTest(&camera));
+	assert(gWristHudLayerMask == 0xF);
+}
 #ifndef WRIST_HUD_LEGACY
 static void TestSnapshotLifetime()
 {
@@ -447,8 +581,10 @@ int main()
 	TestVehicles();
 	TestAtlasFailures();
 	TestPanelProportions();
+	TestAmmoPerHand();
+	TestAmmoWeaponOwnership();
 #ifndef WRIST_HUD_LEGACY
 	TestSnapshotLifetime();
 #endif
-	std::puts("wrist HUD lifecycle: PASS (production submit/restore/update/rect, hand routing, gaze, tracking, OFF/scopes, vehicles, failures, snapshot lifetime, 80 panel-aspect/size combinations)");
+	std::puts("wrist HUD lifecycle: PASS (production submit/restore/update/rect/ammo selection, hand routing, gaze, tracking, OFF/scopes, vehicles, failures, ammo per hand, foregrip carry, RPG trigger ownership, snapshot lifetime, 80 panel-aspect/size combinations)");
 }

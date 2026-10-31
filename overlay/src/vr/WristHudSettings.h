@@ -21,6 +21,9 @@ struct WristHudSettings
 	bool inVehicle = false;
 	bool classicWeapon = true;
 	bool classicClock = true;
+	// On foot, the ammo panel also appears on the other wrist, and each
+	// wrist shows the ammo of the gun that hand fires.
+	bool ammoPerHand = false;
 	int ammoColour[3] = { 90, 235, 120 };
 	int panel = 0;
 	int context = 0;
@@ -122,6 +125,7 @@ struct WristHudSettings
 		inVehicle = Read("WristPanelsInVehicle", 0, 0, 1) != 0;
 		classicWeapon = Read("HudWeaponPanel", 1, 0, 1) != 0;
 		classicClock = Read("HudClock", 1, 0, 1) != 0;
+		ammoPerHand = Read("WristAmmoPerHand", 0, 0, 1) != 0;
 		static const char *const colourKeys[] = { "AmmoColourRed", "AmmoColourGreen", "AmmoColourBlue" };
 		for(int channel = 0; channel < 3; channel++)
 			ammoColour[channel] = Read(colourKeys[channel], ammoColour[channel], 0, 255);
