@@ -10,7 +10,7 @@
     "patches":  [
                     {
                         "path":  "vice-city-vr.patch",
-                        "sha256":  "8f2fda70b46b69ac0c98b62b157b9cdf1a5122b08860757b973dc909a4633e28",
+                        "sha256":  "1033de1a2d4e670445b026abb9b840336acee68295ce5d89c54c0f92c20595f0",
                         "targets":  [
                                         {
                                             "path":  "CMakeLists.txt",
@@ -50,7 +50,7 @@
                                         {
                                             "path":  "src/audio/AudioLogic.cpp",
                                             "preimageSha256":  "0a2c5687cc88cb6f9333ae0a63faac1febdf732e54a787106e7dd26080d42bf4",
-                                            "postimageSha256":  "47a850520ad81da1a6148630c9177d30b796191b22ee95f28a7d206a15ee3af9"
+                                            "postimageSha256":  "9c298dcd0409dcae5d53c450243d9bd0ad6cad6f90219655846d0bc2f14235ae"
                                         },
                                         {
                                             "path":  "src/audio/MusicManager.cpp",
@@ -645,7 +645,7 @@
                                         {
                                             "path":  "src/weapons/Weapon.cpp",
                                             "preimageSha256":  "05c53a74e0b2290f8166c026031aba004371baf0b5e1fa23dbe7c4f309f55d82",
-                                            "postimageSha256":  "aaa33986f08aab0721e872d00c9cdb4e0f955e714a188781c3d09dcedb955a4b"
+                                            "postimageSha256":  "be345af032bbb1c69945c7da2e2870386f8174ccaaa42009c7b073744636d496"
                                         },
                                         {
                                             "path":  "src/weapons/Weapon.h",
