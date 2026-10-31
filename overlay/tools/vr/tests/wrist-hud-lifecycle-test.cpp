@@ -122,8 +122,10 @@ static bool BuildBikeHandleMatrixInternal(int hand, CMatrix *matrix, bool)
 	*matrix = vehicleMatrices[hand];
 	return true;
 }
-static bool BuildCarWheelMatrixInternal(int hand, CMatrix *matrix, bool)
+enum { CAR_WHEEL_SOCKET_SIDE };
+static bool BuildCarWheelSocketMatrixInternal(int hand, int socket, CMatrix *matrix, bool)
 {
+	assert(socket == CAR_WHEEL_SOCKET_SIDE);
 	++vehicleCalls;
 	if(!gFramePrepared || failAnchor) return false;
 	*matrix = vehicleMatrices[hand];

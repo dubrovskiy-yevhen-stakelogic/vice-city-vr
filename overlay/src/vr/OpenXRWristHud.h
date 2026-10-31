@@ -56,8 +56,11 @@ bool BuildWristVehicleAnchor(CMatrix *matrix)
 		matrix->GetForward() = pose.forward;
 		return true;
 	}
-	if(!BuildCarWheelMatrixInternal(0, &left, false) ||
-	   !BuildCarWheelMatrixInternal(1, &right, false)) return false;
+	// The side sockets, whatever the hands hold: a hand on the 12 or 6 o'clock
+	// socket must not turn or move the panels.
+	if(!BuildCarWheelSocketMatrixInternal(0, CAR_WHEEL_SOCKET_SIDE, &left, false) ||
+	   !BuildCarWheelSocketMatrixInternal(1, CAR_WHEEL_SOCKET_SIDE, &right, false))
+		return false;
 	*matrix = left;
 	matrix->GetPosition() = (left.GetPosition()+right.GetPosition())*0.5f;
 	return true;

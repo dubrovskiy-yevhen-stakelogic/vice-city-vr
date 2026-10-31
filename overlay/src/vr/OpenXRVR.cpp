@@ -1277,6 +1277,17 @@ float gBikeHandleDistance[EYE_COUNT] = { 1000.0f, 1000.0f };
 bool gCarWheelGrabbed[EYE_COUNT];
 bool gCarWheelGripDown[EYE_COUNT];
 float gCarWheelDistance[EYE_COUNT] = { 1000.0f, 1000.0f };
+// Each hand owns its side socket (9 or 3 o'clock) and may instead take the
+// shared 12 or 6 o'clock socket. The socket is chosen when the grip closes
+// and falls back to the side once the hand lets go.
+enum eCarWheelSocket
+{
+	CAR_WHEEL_SOCKET_SIDE,
+	CAR_WHEEL_SOCKET_TOP,
+	CAR_WHEEL_SOCKET_BOTTOM,
+	CAR_WHEEL_SOCKET_COUNT
+};
+int gCarWheelSocket[EYE_COUNT] = { CAR_WHEEL_SOCKET_SIDE, CAR_WHEEL_SOCKET_SIDE };
 float gImmersiveCarSteering;
 float gImmersiveCarPhysicalAngle;
 float gImmersiveCarDesiredAngle;
@@ -3360,6 +3371,7 @@ void ResetImmersiveCarInteraction()
 		gCarWheelGrabbed[hand] = false;
 		gCarWheelGripDown[hand] = false;
 		gCarWheelDistance[hand] = 1000.0f;
+		gCarWheelSocket[hand] = CAR_WHEEL_SOCKET_SIDE;
 		gCarHornContact[hand] = false;
 		gCarHornArmed[hand] = false;
 		gCarHornPreviousDistance[hand] = 1000.0f;
@@ -7155,7 +7167,7 @@ bool UpdateVrMenuSwapchain()
 			100, 225, 255);
 		DrawVrMenuText(bike ?
 			"HAND VALUES ARE PER MODEL - CENTER HAS GLOBAL AND MODEL LAYERS" :
-			"GRIP POINTS FOLLOW THE WHEEL AT 9 AND 3 - RADIUS IS AUTHORITATIVE",
+			"GRIPS AT 9, 12, 3 AND 6 FOLLOW THE WHEEL - RADIUS IS AUTHORITATIVE",
 			VR_MENU_WIDTH/2, 143, 2, 170, 190, 210);
 		char rows[VR_BIKE_CALIBRATION_MENU_ITEM_COUNT][112];
 		sprintf(rows[VR_BIKE_CAL_HAND], "EDIT HANDLE  < %s >",
@@ -9661,10 +9673,11 @@ bool BuildCarWheelPose(CVehicle *car, CarWheelPose *pose)
 	return true;
 }
 
-bool BuildCarWheelMatrixInternal(int hand, CMatrix *matrix,
+bool BuildCarWheelSocketMatrixInternal(int hand, int socket, CMatrix *matrix,
 	bool applySteering)
 {
 	if(!matrix || hand < 0 || hand >= EYE_COUNT ||
+	   socket < 0 || socket >= CAR_WHEEL_SOCKET_COUNT ||
 	   !IsVrCarDrivingActiveInternal())
 		return false;
 	CVehicle *car = GetActivePlayerCar();
@@ -9672,9 +9685,10 @@ bool BuildCarWheelMatrixInternal(int hand, CMatrix *matrix,
 	if(!BuildCarWheelPose(car, &pose))
 		return false;
 	matrix->SetUnity();
-	// Car grips are fixed, derived points at 9 and 3 o'clock. There are no
-	// independent hand offsets, so calibration cannot stretch or shift the
-	// physical wheel away from its authoritative centre and radius.
+	// Car grips are fixed, derived points at 9 and 3 o'clock, plus 12 and 6
+	// o'clock. There are no independent hand offsets, so calibration cannot
+	// stretch or shift the physical wheel away from its authoritative centre
+	// and radius.
 	const float side = hand == 0 ? -1.0f : 1.0f;
 	// RenderVrTrackedHand multiplies Matrix::Right by the hand side, producing
 	// the outward radial direction. UltimateXR maps its +Y palm normal to the
@@ -9690,11 +9704,21 @@ bool BuildCarWheelMatrixInternal(int hand, CMatrix *matrix,
 	matrix->GetPosition() = pose.center+pose.right*(side*pose.radius);
 	const float physicalAngle = IsImmersiveCarDrivingActiveInternal() ?
 		gImmersiveCarPhysicalAngle : gMotionVehiclePhysicalAngle;
-	if(applySteering && physicalAngle != 0.0f){
+	// The 12 and 6 o'clock sockets are the side socket turned a quarter around
+	// the wheel normal. Rotating the whole basis keeps the palm facing the
+	// centre and the fingers along the rim. Around the normal a positive angle
+	// takes +right toward -up, so the side sign picks the direction per hand.
+	float socketAngle = 0.0f;
+	if(socket == CAR_WHEEL_SOCKET_TOP)
+		socketAngle = -side*DEGTORAD(90.0f);
+	else if(socket == CAR_WHEEL_SOCKET_BOTTOM)
+		socketAngle = side*DEGTORAD(90.0f);
+	const float steeringAngle = applySteering ? physicalAngle : 0.0f;
+	if(socketAngle != 0.0f || steeringAngle != 0.0f){
 		// The logical wheel angle and Rodrigues rotation use opposite signs in
 		// Vice City's car basis. This sign is visual only: vehicle steering is
 		// passed through independently in GetImmersiveCarSteering.
-		const float angle = -physicalAngle;
+		const float angle = socketAngle-steeringAngle;
 		matrix->GetPosition() = pose.center+RotateAroundAxis(
 			matrix->GetPosition()-pose.center, pose.normal, angle);
 		matrix->GetRight() = RotateAroundAxis(matrix->GetRight(),
@@ -9705,6 +9729,15 @@ bool BuildCarWheelMatrixInternal(int hand, CMatrix *matrix,
 			pose.normal, angle);
 	}
 	return true;
+}
+
+bool BuildCarWheelMatrixInternal(int hand, CMatrix *matrix,
+	bool applySteering)
+{
+	if(hand < 0 || hand >= EYE_COUNT)
+		return false;
+	return BuildCarWheelSocketMatrixInternal(hand, gCarWheelSocket[hand],
+		matrix, applySteering);
 }
 
 void UpdateImmersiveCarModelSteeringWheelInternal(CVehicle *vehicle)
@@ -10003,13 +10036,39 @@ uint32 UpdateImmersiveCarInput(const float *grips, uint32 blockedHands)
 	bool anchorValid[EYE_COUNT] = {};
 	gCarWheelUnavailableMask = 0;
 	for(int hand = 0; hand < EYE_COUNT; hand++){
-		anchorValid[hand] =
-			BuildCarWheelMatrixInternal(hand, &anchors[hand], false);
 		if(gTrackedHandPoseValid[hand])
 			handPositions[hand] = gBaseCamera.GetPosition()+
 				ToGameVector(gTrackedHandPose[hand].position);
 		else
 			handPositions[hand] = CVector(0.0f, 0.0f, 0.0f);
+		// A free hand measures against its nearest socket on the turned wheel,
+		// where the grip boxes are drawn: its own side or a 12/6 o'clock socket
+		// the other hand is not already holding. Measuring on the neutral wheel
+		// would pick a socket a quarter turn away once the wheel is turned.
+		// Iterating the hands in order makes a same-frame double grab of the
+		// shared socket resolve to the left hand.
+		int nearestSocket = gCarWheelSocket[hand];
+		if(!gCarWheelGrabbed[hand] && gTrackedHandPoseValid[hand]){
+			float nearestDistance = 1000.0f;
+			for(int socket = 0; socket < CAR_WHEEL_SOCKET_COUNT; socket++){
+				const int other = 1-hand;
+				if(socket != CAR_WHEEL_SOCKET_SIDE && gCarWheelGrabbed[other] &&
+				   gCarWheelSocket[other] == socket)
+					continue;
+				CMatrix candidate;
+				if(!BuildCarWheelSocketMatrixInternal(hand, socket, &candidate,
+				   true))
+					continue;
+				const float distance =
+					(handPositions[hand]-candidate.GetPosition()).Magnitude();
+				if(distance < nearestDistance){
+					nearestDistance = distance;
+					nearestSocket = socket;
+				}
+			}
+		}
+		anchorValid[hand] = BuildCarWheelSocketMatrixInternal(hand,
+			nearestSocket, &anchors[hand], true);
 		gCarWheelDistance[hand] =
 			anchorValid[hand] && gTrackedHandPoseValid[hand] ?
 			(handPositions[hand]-anchors[hand].GetPosition()).Magnitude() :
@@ -10027,10 +10086,15 @@ uint32 UpdateImmersiveCarInput(const float *grips, uint32 blockedHands)
 			gCarWheelGripDown[hand], grips[hand], unavailable,
 			gCarWheelDistance[hand]);
 		if(gCarWheelGrabbed[hand] && !wasGrabbed){
-			debug("[OpenXR] %s car wheel grip grabbed on %s\n",
+			gCarWheelSocket[hand] = nearestSocket;
+			debug("[OpenXR] %s car wheel grip grabbed at %s on %s\n",
 				hand == 0 ? "Left" : "Right",
+				nearestSocket == CAR_WHEEL_SOCKET_TOP ? "12 o'clock" :
+				nearestSocket == CAR_WHEEL_SOCKET_BOTTOM ? "6 o'clock" :
+				hand == 0 ? "9 o'clock" : "3 o'clock",
 				GetActiveVrVehicleName());
-		}
+		}else if(!gCarWheelGrabbed[hand])
+			gCarWheelSocket[hand] = CAR_WHEEL_SOCKET_SIDE;
 	}
 
 	const bool left = gCarWheelGrabbed[0] && anchorValid[0];
@@ -18798,6 +18862,33 @@ bool ShouldRenderImmersiveSteeringHandleMarker(int hand)
 		return gVrBikeCalibrationMenuVisible ||
 			(FindPlayerVehicle()->IsBoat() ? gBoatHandleHighlightsEnabled : gCarHandleHighlightsEnabled);
 	return ShouldRenderImmersiveBikeHandleMarker(hand);
+}
+
+// Car grip boxes are drawn per rim socket rather than per hand, so the 12 and
+// 6 o'clock sockets show even while no hand holds them. Sockets 0-3 are 9, 3,
+// 12 and 6 o'clock.
+bool GetImmersiveCarWheelGripMarker(int socket, CMatrix *matrix, bool *grabbed)
+{
+	if(!matrix || socket < 0 || socket > 3 ||
+	   !IsImmersiveCarDrivingActiveInternal() ||
+	   !ShouldRenderImmersiveSteeringHandleMarker(0))
+		return false;
+	const int hand = socket == 0 ? 0 : 1;
+	const int wheelSocket = socket < 2 ? CAR_WHEEL_SOCKET_SIDE :
+		socket == 2 ? CAR_WHEEL_SOCKET_TOP : CAR_WHEEL_SOCKET_BOTTOM;
+	if(!BuildCarWheelSocketMatrixInternal(hand, wheelSocket, matrix, true))
+		return false;
+	if(grabbed){
+		*grabbed = false;
+		for(int holder = 0; holder < EYE_COUNT; holder++){
+			if(!gCarWheelGrabbed[holder] ||
+			   gCarWheelSocket[holder] != wheelSocket)
+				continue;
+			if(wheelSocket != CAR_WHEEL_SOCKET_SIDE || holder == hand)
+				*grabbed = true;
+		}
+	}
+	return true;
 }
 
 bool ShouldRenderImmersiveCarWheel()

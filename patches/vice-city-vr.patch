@@ -8155,7 +8155,7 @@ index 6d30a65..fb33110 100644
  
  #ifndef EXTENDED_COLOURFILTER
 diff --git a/src/core/main.cpp b/src/core/main.cpp
-index a38fe72..eed8e00 100644
+index a38fe72..a4a37bd 100644
 --- a/src/core/main.cpp
 +++ b/src/core/main.cpp
 @@ -23,6 +23,7 @@
@@ -8324,7 +8324,7 @@ index a38fe72..eed8e00 100644
  	}
  
  	return &splash;
-@@ -1357,6 +1447,1301 @@ RenderScene(void)
+@@ -1357,6 +1447,1319 @@ RenderScene(void)
  	POP_RENDERGROUP();
  }
  
@@ -9305,9 +9305,27 @@ index a38fe72..eed8e00 100644
 +static void
 +RenderVrSteeringHandleMarkers(void)
 +{
-+	RwIm3DVertex vertices[16];
-+	RwImVertexIndex indices[72];
++	RwIm3DVertex vertices[32];
++	RwImVertexIndex indices[144];
 +	int vertexCount = 0, indexCount = 0;
++#ifdef GTA_VR_OPENXR
++	// A car wheel has a box at every rim socket (9, 3, 12 and 6 o'clock),
++	// whether or not a hand holds it. Bikes keep one box per hand below.
++	bool carSockets = false;
++	for(int socket = 0; socket < 4; socket++){
++		CMatrix matrix;
++		bool grabbed = false;
++		if(!OculusVR::GetImmersiveCarWheelGripMarker(socket, &matrix, &grabbed))
++			continue;
++		carSockets = true;
++		AppendVrHandBox(vertices, vertexCount, indices, indexCount,
++			matrix.GetPosition(), matrix.GetRight(), matrix.GetUp(),
++			matrix.GetForward(), 0.035f, 0.035f, 0.055f,
++			grabbed ? 70 : 35, grabbed ? 245 : 180,
++			grabbed ? 125 : 245);
++	}
++	if(!carSockets)
++#endif
 +	for(int hand = 0; hand < 2; hand++){
 +		if(!OculusVR::ShouldRenderImmersiveSteeringHandleMarker(hand))
 +			continue;
@@ -9626,7 +9644,7 @@ index a38fe72..eed8e00 100644
  void
  RenderDebugShit(void)
  {
-@@ -1382,10 +2767,19 @@ RenderEffects(void)
+@@ -1382,10 +2785,19 @@ RenderEffects(void)
  	}
  #endif
  	PUSH_RENDERGROUP("RenderEffects");
@@ -9646,7 +9664,7 @@ index a38fe72..eed8e00 100644
  	CShadows::RenderStaticShadows();
  	CShadows::RenderStoredShadows();
  	CSkidmarks::Render();
-@@ -1396,11 +2790,624 @@ RenderEffects(void)
+@@ -1396,11 +2808,624 @@ RenderEffects(void)
  	CPacManPickups::Render();
  	CWeaponEffects::Render();
  	CPointLights::RenderFogEffect();
@@ -9661,9 +9679,9 @@ index a38fe72..eed8e00 100644
 +#ifdef RW_D3D12
 +	rw::d3d12::setWorldRenderStage(rw::d3d12::WORLD_STAGE_EFFECTS);
 +#endif
- 	POP_RENDERGROUP();
- }
- 
++	POP_RENDERGROUP();
++}
++
 +#ifdef GTA_VR_OCULUS
 +struct VrDebugGlyph
 +{
@@ -9822,9 +9840,9 @@ index a38fe72..eed8e00 100644
 +	#ifdef RW_GL3
 +	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 +	#endif
-+	POP_RENDERGROUP();
-+}
-+
+ 	POP_RENDERGROUP();
+ }
+ 
 +static void
 +RotateVrVehicleCameraBasisToYaw(CVector &forward, CVector &up, float targetYaw)
 +{
@@ -10271,7 +10289,7 @@ index a38fe72..eed8e00 100644
  void
  Render2dStuff(void)
  {
-@@ -1411,9 +3418,14 @@ Render2dStuff(void)
+@@ -1411,9 +3436,14 @@ Render2dStuff(void)
  	RwRenderStateSet(rwRENDERSTATESRCBLEND, (void*)rwBLENDSRCALPHA);
  	RwRenderStateSet(rwRENDERSTATEDESTBLEND, (void*)rwBLENDINVSRCALPHA);
  	RwRenderStateSet(rwRENDERSTATECULLMODE, (void*)rwCULLMODECULLNONE);
@@ -10287,7 +10305,7 @@ index a38fe72..eed8e00 100644
  
  	if(TheCamera.m_WideScreenOn
  #ifdef CUTSCENE_BORDERS_SWITCH
-@@ -1453,21 +3465,92 @@ Render2dStuff(void)
+@@ -1453,21 +3483,92 @@ Render2dStuff(void)
  		CSprite2d::DrawRect(CRect(SCREEN_WIDTH / 2 + SCREEN_SCALE_X(210), 0.0f, SCREEN_WIDTH, SCREEN_HEIGHT), black);
  	}
  
@@ -10389,7 +10407,7 @@ index a38fe72..eed8e00 100644
  	CFont::DrawFonts();
  #ifndef MASTER
  	COcclusion::Render();
-@@ -1505,7 +3588,14 @@ Render2dStuffAfterFade(void)
+@@ -1505,7 +3606,14 @@ Render2dStuffAfterFade(void)
  #ifdef MOBILE_IMPROVEMENTS
  	if (CDraw::FadeValue != 0)
  #endif
@@ -10405,7 +10423,7 @@ index a38fe72..eed8e00 100644
  	CFont::DrawFonts();
  	CCredits::Render();
  	POP_RENDERGROUP();
-@@ -1515,39 +3605,77 @@ void
+@@ -1515,39 +3623,77 @@ void
  Idle(void *arg)
  {
  	CTimer::Update();
@@ -10484,7 +10502,7 @@ index a38fe72..eed8e00 100644
  
  	PUSH_MEMID(MEMID_RENDER);
  
-@@ -1562,6 +3690,12 @@ Idle(void *arg)
+@@ -1562,6 +3708,12 @@ Idle(void *arg)
  #endif
  
  		tbStartTimer(0, "CnstrRenderList");
@@ -10497,7 +10515,7 @@ index a38fe72..eed8e00 100644
  #ifdef PC_WATER
  		CWaterLevel::PreCalcWaterGeometry();
  #endif
-@@ -1572,12 +3706,43 @@ Idle(void *arg)
+@@ -1572,12 +3724,43 @@ Idle(void *arg)
  		}
  #endif
  		CRenderer::ConstructRenderList();
@@ -10541,7 +10559,7 @@ index a38fe72..eed8e00 100644
  #ifdef FIX_BUGS
  		RwRenderStateSet(rwRENDERSTATEZWRITEENABLE, (void *)FALSE); // TODO: temp? this fixes OpenGL render but there should be a better place for this
  		// This has to be done BEFORE RwCameraBeginUpdate
-@@ -1585,7 +3750,16 @@ Idle(void *arg)
+@@ -1585,7 +3768,16 @@ Idle(void *arg)
  		RwCameraSetFogDistance(Scene.camera, CTimeCycle::GetFogStart());
  #endif
  
@@ -10559,7 +10577,7 @@ index a38fe72..eed8e00 100644
  			if(!DoRWStuffStartOfFrame_Horizon(255, 255, 255, 255, 255, 255, 255))
  				goto popret;
  		}else{
-@@ -1596,6 +3770,9 @@ Idle(void *arg)
+@@ -1596,6 +3788,9 @@ Idle(void *arg)
  		}
  
  		DefinedState();
@@ -10569,7 +10587,7 @@ index a38fe72..eed8e00 100644
  
  #ifndef FIX_BUGS
  		RwCameraSetFarClipPlane(Scene.camera, CTimeCycle::GetFarClip());
-@@ -1603,34 +3780,75 @@ Idle(void *arg)
+@@ -1603,34 +3798,75 @@ Idle(void *arg)
  #endif
  
  		tbStartTimer(0, "RenderScene");
@@ -10653,7 +10671,7 @@ index a38fe72..eed8e00 100644
  		CDraw::CalculateAspectRatio();
  #ifdef ASPECT_RATIO_SCALE
  		CameraSize(Scene.camera, nil, SCREEN_VIEWWINDOW, SCREEN_ASPECT_RATIO);
-@@ -1644,6 +3862,9 @@ Idle(void *arg)
+@@ -1644,6 +3880,9 @@ Idle(void *arg)
  	}
  
  	tbStartTimer(0, "RenderMenus");
@@ -10663,7 +10681,7 @@ index a38fe72..eed8e00 100644
  	RenderMenus();
  	tbEndTimer("RenderMenus");
  
-@@ -1667,15 +3888,35 @@ Idle(void *arg)
+@@ -1667,15 +3906,35 @@ Idle(void *arg)
  	if (gbShowTimebars)
  		tbDisplay();
  
