@@ -5920,7 +5920,7 @@ index 32aa404..8d49f8e 100644
  		return 0;
  	return fd;
 diff --git a/src/core/Frontend.cpp b/src/core/Frontend.cpp
-index d6c2649..92d0fe8 100644
+index d6c2649..c613e66 100644
 --- a/src/core/Frontend.cpp
 +++ b/src/core/Frontend.cpp
 @@ -426,12 +426,17 @@ void

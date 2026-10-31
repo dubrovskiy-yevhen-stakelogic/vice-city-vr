@@ -10,7 +10,7 @@
     "patches":  [
                     {
                         "path":  "vice-city-vr.patch",
-                        "sha256":  "141a707a0bc115f1a2811bfa53bfad93564ac6f4c1299f529da4030639cde3c0",
+                        "sha256":  "8f2fda70b46b69ac0c98b62b157b9cdf1a5122b08860757b973dc909a4633e28",
                         "targets":  [
                                         {
                                             "path":  "CMakeLists.txt",
