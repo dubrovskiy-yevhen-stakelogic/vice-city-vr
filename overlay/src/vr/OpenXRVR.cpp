@@ -735,9 +735,10 @@ ULONGLONG gTrackedScopeCandidateSince;
 ULONGLONG gTrackedScopeInvalidSince;
 bool gTrackedScopeReticleTargetValid;
 CVector gTrackedScopeReticleTarget;
-// Magnification of the sniper and laser scope optics. The right stick changes
-// it while the optic is active; each weapon keeps its value until the game exits.
-float gTrackedScopeZoom[2] = { 2.5f, 3.0f };
+// Magnification of the sniper and laser scope optics and the camera
+// viewfinder. The right stick changes it while the optic is active; each
+// weapon keeps its value until the game exits.
+float gTrackedScopeZoom[3] = { 2.5f, 3.0f, 1.6f };
 ULONGLONG gTrackedScopeZoomShownAt;
 // PerfNowMs of the last stick update; GetTickCount64 only advances every
 // 10-16 ms, which would zoom in visible steps at 90-120 Hz.
@@ -10729,8 +10730,17 @@ int GetTrackedScopeZoomSlotInternal(int weaponType)
 	switch(weaponType){
 	case WEAPONTYPE_SNIPERRIFLE: return 0;
 	case WEAPONTYPE_LASERSCOPE: return 1;
+	case WEAPONTYPE_CAMERA: return 2;
 	default: return -1;
 	}
+}
+
+// 5.3x is the span of the desktop sniper camera, whose field of view narrows
+// from 70 to 15 degrees. The desktop photo camera narrows to 3 degrees; the
+// viewfinder stops at 8x, where the cropped eye image is already coarse.
+float GetTrackedScopeMaxZoomInternal(int slot)
+{
+	return slot == 2 ? 8.0f : 5.3f;
 }
 
 float GetTrackedScopeZoomInternal()
@@ -10740,7 +10750,6 @@ float GetTrackedScopeZoomInternal()
 		return gTrackedScopeZoom[slot];
 	switch(gTrackedScopeWeaponType){
 	case WEAPONTYPE_ROCKETLAUNCHER: return 1.8f;
-	case WEAPONTYPE_CAMERA: return 1.6f;
 	default: return 1.0f;
 	}
 }
@@ -16316,10 +16325,9 @@ bool UpdateTeleportInput(const XrVector2f &leftStick)
 	return false;
 }
 
-// Zooms an active sniper or laser scope optic with the right stick: up zooms
-// in, down zooms out, and full deflection doubles or halves the magnification
-// per second. 1x to 5.3x is the span of the desktop sniper camera, whose
-// field of view narrows from 70 to 15 degrees.
+// Zooms an active sniper or laser scope optic or the camera viewfinder with
+// the right stick: up zooms in, down zooms out, and full deflection doubles or
+// halves the magnification per second, from 1x to the weapon's maximum.
 // Returns true while the stick belongs to the optic instead of turning.
 bool UpdateTrackedScopeZoom(const XrVector2f &stick)
 {
@@ -16337,7 +16345,8 @@ bool UpdateTrackedScopeZoom(const XrVector2f &stick)
 		const float speed = (amount-deadZone)/(1.0f-deadZone);
 		const float factor = powf(2.0f, copysignf(speed*seconds, stick.y));
 		gTrackedScopeZoom[slot] =
-			clamp(gTrackedScopeZoom[slot]*factor, 1.0f, 5.3f);
+			clamp(gTrackedScopeZoom[slot]*factor, 1.0f,
+				GetTrackedScopeMaxZoomInternal(slot));
 		gTrackedScopeZoomShownAt = GetTickCount64();
 	}
 	return true;
