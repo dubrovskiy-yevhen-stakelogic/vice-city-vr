@@ -154,6 +154,8 @@ bool IsTrackedWeaponLaserEnabledForType(int weaponType);
 bool IsTrackedScopeActive();
 bool IsTrackedScopeActiveForHand(int hand);
 int GetTrackedScopeWeaponType();
+// Current magnification while it should be shown inside the optic.
+bool GetTrackedScopeZoomLabel(float *zoom);
 bool ShouldUseTrackedWeapon(int hand);
 bool IsTrackedWeaponTriggerPressed(int hand);
 bool IsTrackedWeaponTriggerJustPressed(int hand);

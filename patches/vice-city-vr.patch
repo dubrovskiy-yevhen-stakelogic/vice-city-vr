@@ -8155,7 +8155,7 @@ index 6d30a65..fb33110 100644
  
  #ifndef EXTENDED_COLOURFILTER
 diff --git a/src/core/main.cpp b/src/core/main.cpp
-index a38fe72..99a023a 100644
+index a38fe72..db34e00 100644
 --- a/src/core/main.cpp
 +++ b/src/core/main.cpp
 @@ -23,6 +23,7 @@
@@ -9672,7 +9672,7 @@ index a38fe72..99a023a 100644
  	CShadows::RenderStaticShadows();
  	CShadows::RenderStoredShadows();
  	CSkidmarks::Render();
-@@ -1396,11 +2816,624 @@ RenderEffects(void)
+@@ -1396,11 +2816,651 @@ RenderEffects(void)
  	CPacManPickups::Render();
  	CWeaponEffects::Render();
  	CPointLights::RenderFogEffect();
@@ -9687,9 +9687,9 @@ index a38fe72..99a023a 100644
 +#ifdef RW_D3D12
 +	rw::d3d12::setWorldRenderStage(rw::d3d12::WORLD_STAGE_EFFECTS);
 +#endif
- 	POP_RENDERGROUP();
- }
- 
++	POP_RENDERGROUP();
++}
++
 +#ifdef GTA_VR_OCULUS
 +struct VrDebugGlyph
 +{
@@ -9822,6 +9822,28 @@ index a38fe72..99a023a 100644
 +		CPickups::RenderPickUpText();
 +		MusicManager.DisplayRadioStationName();
 +	}
++	float trackedScopeZoom;
++	if(trackedScope && OculusVR::GetTrackedScopeZoomLabel(&trackedScopeZoom)){
++		// Briefly show the optic's magnification near the bottom of the lens.
++		// It is flushed on its own because the glyphs CHud and the message
++		// systems queue during a tracked-scope frame stay unflushed.
++		char text[16];
++		wchar label[16];
++		sprintf(text, "%.1fx", trackedScopeZoom);
++		AsciiToUnicode(text, label);
++		CFont::SetPropOn();
++		CFont::SetBackgroundOff();
++		CFont::SetScale(SCREEN_SCALE_X(0.8f), SCREEN_SCALE_Y(1.2f));
++		CFont::SetCentreOn();
++		CFont::SetCentreSize(SCREEN_WIDTH);
++		CFont::SetFontStyle(FONT_HEADING);
++		CFont::SetDropShadowPosition(2);
++		CFont::SetDropColor(CRGBA(0, 0, 0, 255));
++		CFont::SetColor(CRGBA(170, 255, 170, 255));
++		CFont::PrintString(SCREEN_WIDTH/2.0f,
++			SCREEN_HEIGHT/2.0f+SCREEN_SCALE_Y(150.0f), label);
++		CFont::DrawFonts();
++	}
 +	CHud::Draw();
 +	CSpecialFX::Render2DFXs();
 +	if(trackedScope){
@@ -9845,12 +9867,17 @@ index a38fe72..99a023a 100644
 +		CHud::DrawAfterFade();
 +		CFont::DrawFonts();
 +	}
++	// Keep the left edge, already inside the mask, black after everything
++	// else; the layer that darkens the other eye samples it.
++	if(trackedScope && trackedScopeWeapon != WEAPONTYPE_CAMERA)
++		CSprite2d::DrawRect(CRect(0.0f, 0.0f, 16.0f, SCREEN_HEIGHT),
++			CRGBA(0, 0, 0, 255));
 +	#ifdef RW_GL3
 +	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 +	#endif
-+	POP_RENDERGROUP();
-+}
-+
+ 	POP_RENDERGROUP();
+ }
+ 
 +static void
 +RotateVrVehicleCameraBasisToYaw(CVector &forward, CVector &up, float targetYaw)
 +{
@@ -10297,7 +10324,7 @@ index a38fe72..99a023a 100644
  void
  Render2dStuff(void)
  {
-@@ -1411,9 +3444,14 @@ Render2dStuff(void)
+@@ -1411,9 +3471,14 @@ Render2dStuff(void)
  	RwRenderStateSet(rwRENDERSTATESRCBLEND, (void*)rwBLENDSRCALPHA);
  	RwRenderStateSet(rwRENDERSTATEDESTBLEND, (void*)rwBLENDINVSRCALPHA);
  	RwRenderStateSet(rwRENDERSTATECULLMODE, (void*)rwCULLMODECULLNONE);
@@ -10313,7 +10340,7 @@ index a38fe72..99a023a 100644
  
  	if(TheCamera.m_WideScreenOn
  #ifdef CUTSCENE_BORDERS_SWITCH
-@@ -1453,21 +3491,92 @@ Render2dStuff(void)
+@@ -1453,21 +3518,92 @@ Render2dStuff(void)
  		CSprite2d::DrawRect(CRect(SCREEN_WIDTH / 2 + SCREEN_SCALE_X(210), 0.0f, SCREEN_WIDTH, SCREEN_HEIGHT), black);
  	}
  
@@ -10415,7 +10442,7 @@ index a38fe72..99a023a 100644
  	CFont::DrawFonts();
  #ifndef MASTER
  	COcclusion::Render();
-@@ -1505,7 +3614,14 @@ Render2dStuffAfterFade(void)
+@@ -1505,7 +3641,14 @@ Render2dStuffAfterFade(void)
  #ifdef MOBILE_IMPROVEMENTS
  	if (CDraw::FadeValue != 0)
  #endif
@@ -10431,7 +10458,7 @@ index a38fe72..99a023a 100644
  	CFont::DrawFonts();
  	CCredits::Render();
  	POP_RENDERGROUP();
-@@ -1515,39 +3631,77 @@ void
+@@ -1515,39 +3658,77 @@ void
  Idle(void *arg)
  {
  	CTimer::Update();
@@ -10510,7 +10537,7 @@ index a38fe72..99a023a 100644
  
  	PUSH_MEMID(MEMID_RENDER);
  
-@@ -1562,6 +3716,12 @@ Idle(void *arg)
+@@ -1562,6 +3743,12 @@ Idle(void *arg)
  #endif
  
  		tbStartTimer(0, "CnstrRenderList");
@@ -10523,7 +10550,7 @@ index a38fe72..99a023a 100644
  #ifdef PC_WATER
  		CWaterLevel::PreCalcWaterGeometry();
  #endif
-@@ -1572,12 +3732,43 @@ Idle(void *arg)
+@@ -1572,12 +3759,43 @@ Idle(void *arg)
  		}
  #endif
  		CRenderer::ConstructRenderList();
@@ -10567,7 +10594,7 @@ index a38fe72..99a023a 100644
  #ifdef FIX_BUGS
  		RwRenderStateSet(rwRENDERSTATEZWRITEENABLE, (void *)FALSE); // TODO: temp? this fixes OpenGL render but there should be a better place for this
  		// This has to be done BEFORE RwCameraBeginUpdate
-@@ -1585,7 +3776,16 @@ Idle(void *arg)
+@@ -1585,7 +3803,16 @@ Idle(void *arg)
  		RwCameraSetFogDistance(Scene.camera, CTimeCycle::GetFogStart());
  #endif
  
@@ -10585,7 +10612,7 @@ index a38fe72..99a023a 100644
  			if(!DoRWStuffStartOfFrame_Horizon(255, 255, 255, 255, 255, 255, 255))
  				goto popret;
  		}else{
-@@ -1596,6 +3796,9 @@ Idle(void *arg)
+@@ -1596,6 +3823,9 @@ Idle(void *arg)
  		}
  
  		DefinedState();
@@ -10595,7 +10622,7 @@ index a38fe72..99a023a 100644
  
  #ifndef FIX_BUGS
  		RwCameraSetFarClipPlane(Scene.camera, CTimeCycle::GetFarClip());
-@@ -1603,34 +3806,75 @@ Idle(void *arg)
+@@ -1603,34 +3833,75 @@ Idle(void *arg)
  #endif
  
  		tbStartTimer(0, "RenderScene");
@@ -10679,7 +10706,7 @@ index a38fe72..99a023a 100644
  		CDraw::CalculateAspectRatio();
  #ifdef ASPECT_RATIO_SCALE
  		CameraSize(Scene.camera, nil, SCREEN_VIEWWINDOW, SCREEN_ASPECT_RATIO);
-@@ -1644,6 +3888,9 @@ Idle(void *arg)
+@@ -1644,6 +3915,9 @@ Idle(void *arg)
  	}
  
  	tbStartTimer(0, "RenderMenus");
@@ -10689,7 +10716,7 @@ index a38fe72..99a023a 100644
  	RenderMenus();
  	tbEndTimer("RenderMenus");
  
-@@ -1667,15 +3914,35 @@ Idle(void *arg)
+@@ -1667,15 +3941,35 @@ Idle(void *arg)
  	if (gbShowTimebars)
  		tbDisplay();
  
